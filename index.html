@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+  </head>
+  <body>
+    <div onclick = "setPage()">
+      <embed
+      src="http://infolab.stanford.edu/pub/papers/google.pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit&page=3"
+      type="application/pdf"
+      width="100%"
+      height="100%">
+    </div>
+
+  </body>
+  <script>
+    let embed = document.querySelector("embed");
+    embed.pgnum = 0;
+    function setPage(i = embed.pgnum + 1){
+      embed.scrollTop();
+      // console.log(i);
+      // embed.setAttribute('src', `http://infolab.stanford.edu/pub/papers/google.pdf#toolbar=0&navpanes=0&scrollbar=0&view=Fit&page=${i}`);
+      // embed.pgnum = i;
+      // embed.load();
+    }
+
+  </script>
+  <style>
+    embed {
+      pointer-events: none;
+    }
+    div {width: 100%; height: 100%;}
+    body {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+    }
+
+  </style>
+</html>
