@@ -1,0 +1,63 @@
+eye-see {
+  position: relative;
+  display: block;
+}
+
+div[hidden]{
+  display: none;
+}
+
+.login-window, .loader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+.loader {
+  background: #f005;
+  z-index: 200;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+.login-window {
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1em;
+  z-index: 100;
+}
+.logout {
+  position: absolute;
+  margin: 0.2em;
+  top: 0;
+  right: 0;
+}
+.btn {
+  padding: 0.3em;
+  border: 2px solid black;
+  border-radius: 5px;
+  font-size: 1.5em;
+  cursor: pointer;
+  user-select: none;
+}
+.pointer {
+  width: 8px;
+  height: 8px;
+  border-radius: 5px;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: red;
+}
+
+.join-tool {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0.2em;
+  display: flex;
+  gap: 0.2em;
+}

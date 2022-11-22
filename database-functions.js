@@ -32,28 +32,11 @@ function authChange(user){
 
   StateListeners = newListeners;
 }
-async function listenTo(fref, callback) {
-  return new Promise((resolve, reject) => {
-    if (callback instanceof Function) {
-      try {
-        let stop = onValue(fref, callback, (sc) => {
-          callback(sc.val());
-          resolve(stop);
-        }, () => {
-          resolve(false);
-        });
-      } catch(e) {
-        resolve(false);
-      }
-    } else {
-      resolve(false);
-    }
-  });
-}
+
 function sessionRef(sessionID, childKey) {
   let sref = null;
   if (Database != null) {
-    ref(Database, "sessions/" + sessionID);
+    sref = ref(Database, "sessions/" + sessionID);
     if (typeof childKey === "string") sref = child(sref, childKey);
   }
   return sref;
@@ -66,25 +49,24 @@ function patientRef(sessionID) {
   }
   return pref;
 }
-async function isOwner(sessionId){
-  let isowner = false;
+async function isOwner(sessionID){
+  let owner = null;
   try {
-    let owner = (await get(sessionRef(sessionID, "owner"))).val();
-    if (owner == getUID()) {
-      isowner = true;
-    }
+    owner = (await get(sessionRef(sessionID, "owner"))).val();
   } catch(e) {
-    isowner = false;
+    owner = null;
   }
-  return isowner;
+  if (owner !== null) {
+    owner = owner == getUID();
+  }
+  return owner;
 }
 
-async function initializeFirebase(config = firebaseConfig) {
+function initializeFirebase(config = firebaseConfig) {
   App = initializeApp(config);
-  Database = getDatabase(APP);
+  Database = getDatabase(App);
   Auth = getAuth();
-
-  onAuthStateChanged(AUTH, (userData) => {
+  onAuthStateChanged(Auth, (userData) => {
     if (userData == null) {
       authChange(userData);
     } else {
@@ -114,6 +96,7 @@ function addAuthChangeListener(obj) {
 
 function login(){
   const provider = new GoogleAuthProvider();
+  console.log(Auth);
   signInWithRedirect(Auth, provider);
 }
 
@@ -129,56 +112,86 @@ async function makeSession() {
     let session = {
       "owner": sessionID,
     }
-    await set(sessionRef(sessionID), session);
+    let sref = sessionRef(sessionID);
+    await set(sref, session);
   } catch(e) {
     sessionID = null;
   }
   return sessionID;
 }
 
-// join a session
-async function joinSession(sessionID) {
-  let sessionObj = {};
-  let stop = null;
-  if (await isOwner()) {
-    // update session info
-    sessionObj.update = async (session) => {
-      try {
-        await set(sessionRef(sessionID, "info", session.info))
-        return true;
-      } catch (e) {
-        return false;
-      }
+function joinSessionAsOwner(sessionID, sessionObj) {
+  // update session info
+  sessionObj.updateInfo = async (info) => {
+    try {
+      await set(sessionRef(sessionID, "info"), info)
+      return true;
+    } catch (e) {
+      console.log(e);
+      return false;
     }
-
-    // watch for changes in patients directory
-    stop = await listenTo(sessionRef(sessionID, "patients"), (patients) => {
-      if (sessionObj.onpatientinfo instanceof Function) {
-        sessionObj.onpatientinfo(patients);
-      }
-    });
-  } else {
-    let update = async (session) => {
-      try {
-        await set(patientRef(), session.patients.uid);
-        return true;
-      } catch(e) {
-        return false;
-      }
-    }
-    // watch for changes in info call session update on change
-    let stop = await listenTo(sessionRef(sessionID, "info"), (info) => {
-      if (sessionObj.oninfo instanceof Function) {
-        sessionObj.oninfo(info);
-      }
-    })
   }
-  if (stop == false) {
+
+  // watch for changes in patients directory
+  let stop = onValue(sessionRef(sessionID, "patients"), (patients) => {
+    if (sessionObj.onpatientinfo instanceof Function) {
+      sessionObj.onpatientinfo(patients.val());
+    }
+  });
+
+  sessionObj.leaveSession = () => {
+    stop();
+    sessionObj.updateInfo = null;
+  }
+
+  sessionObj.isSessionOwner = true;
+}
+
+function joinSessionAsPatient(sessionID, sessionObj) {
+  sessionObj.updatePatientInfo = async (pinfo) => {
+    try {
+      await set(patientRef(), pinfo);
+      return true;
+    } catch(e) {
+      return false;
+    }
+  }
+  // watch for changes in info call session update on change
+  let stop = onValue(sessionRef(sessionID, "info"), (info) => {
+    if (sessionObj.oninfo instanceof Function) {
+      sessionObj.oninfo(info.val());
+    }
+  });
+
+  sessionObj.unsubscribeSession = () => {
+    stop();
+    sessionObj.updatePatientInfo = null;
+  }
+
+  sessionObj.isSessionOwner = false;
+}
+
+// join a session
+async function joinSession(sessionID, sessionObj = {}, forcePatient = false) {
+  if (typeof sessionObj !== "object" || sessionObj === null) sessionObj = {};
+
+  let isowner = await isOwner(sessionID);
+  if (isowner !== null) {
+    if (isowner && !forcePatient) {
+      joinSessionAsOwner(sessionID, sessionObj);
+      console.log("session joined as owner");
+    } else {
+      joinSessionAsPatient(sessionID, sessionObj);
+      console.log("session joined as patient");
+
+    }
+  } else {
     sessionObj = null;
   }
+
   return sessionObj;
 }
 
-initializeApp();
+initializeFirebase();
 
 export {addAuthChangeListener, login, logout, makeSession, joinSession}
