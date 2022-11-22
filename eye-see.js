@@ -13,6 +13,16 @@ class EyeSee extends SvgPlus {
     this.updateInfo = null;
     this.updatePatientInfo = null;
   }
+  async joinSession(id, forcePatient){
+    this.jtool.style.opacity = 0.5;
+    this.leaveSession();
+    let res = await joinSession(id, this, forcePatient);
+    if (res !== null) {
+      this.jtool.toggleAttribute("hidden", true);
+    }
+    this.jtool.style.opacity = 1;
+    return res;
+  }
 
   onconnect(){
     this.pointer = this.createChild("div", {class: "pointer"});
@@ -22,19 +32,16 @@ class EyeSee extends SvgPlus {
     let jtool = this.createChild("div", {class: "join-tool"});
     let jinput = jtool.createChild("input", {class: "joine"});
     let jbtn = jtool.createChild("div", {class: "btn", content: "join"});
+    this.jtool = jtool;
 
     jbtn.onclick = async () => {
       let id = jinput.value;
-      let res = await joinSession(id, this, true);
-      if (res) {
-        jtool.toggleAttribute("hidden", true);
-      }
+      await this.joinSession(id, true);
     }
 
     logoutbtn.oncontextmenu = async (e) => {
-      console.log(e);
-      let res = await joinSession(this.uid, this);
       e.preventDefault();
+      await this.joinSession(this.uid);
     }
 
     this.login_window = this.createChild("div", {class: "login-window"});
