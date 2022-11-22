@@ -71,7 +71,7 @@ function initializeFirebase(config = firebaseConfig) {
     if (userData == null) {
       authChange(userData);
     } else {
-      if (!(User != null && User.uid === userDat.uid)) {
+      if (!(User != null && User.uid === userData.uid)) {
         authChange(userData);
       }
     }
