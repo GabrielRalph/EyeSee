@@ -54,6 +54,7 @@ async function isOwner(sessionID){
   try {
     owner = (await get(sessionRef(sessionID, "owner"))).val();
   } catch(e) {
+    console.log(e);
     owner = null;
   }
   if (owner !== null) {
@@ -115,6 +116,7 @@ async function makeSession() {
     let sref = sessionRef(sessionID);
     await set(sref, session);
   } catch(e) {
+    console.log(e);
     sessionID = null;
   }
   return sessionID;
@@ -153,6 +155,7 @@ function joinSessionAsPatient(sessionID, sessionObj) {
       await set(patientRef(), pinfo);
       return true;
     } catch(e) {
+      console.log(e);
       return false;
     }
   }
