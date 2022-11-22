@@ -4,6 +4,8 @@ class EyeSee extends SvgPlus {
   constructor(el) {
     super(el);
     this.mpos = new Vector;
+    this.opacity = 0;
+    this.fade = true;
   }
 
   leaveSession(){
@@ -75,12 +77,22 @@ class EyeSee extends SvgPlus {
   onmousemove(e) {
     let p = new Vector(e);
     let [pos, size] = this.bbox;
-    let pr = p.sub(pos);
+    let pr = p.sub(pos).div(size);
     this.mpos = pr;
+  }
+  onmouseleave(e) {
+    this.mpos = new Vector(-1);
   }
 
   async update(){
     if (this.uid == null) return;
+    // console.log(this.fade);
+    if (this.fade && this.opacity > 0) {
+      this.opacity -= 0.02
+    } else if (!this.fade && this.opacity < 1) {
+      this.opacity += 0.05;
+    }
+    this.pointer.style.opacity = this.opacity;
 
     if (this.updateInfo instanceof Function) {
       let info = {
@@ -88,8 +100,6 @@ class EyeSee extends SvgPlus {
         mousey: this.mpos.y,
       }
       await this.updateInfo(info)
-    } else {
-
     }
 
     if (this.updatePatientInfo instanceof Function) {
@@ -107,9 +117,12 @@ class EyeSee extends SvgPlus {
   oninfo(info) {
     // this.mpos = new Vector(info.mousex, info.mousey);
     // console.log(info);
+    let [pos, size] = this.bbox;
+    let [x, y] = [info.mousex * size.x, info.mousey * size.y]
+    this.fade = (x< 0 || y < 0)
     this.pointer.styles = {
-      left: info.mousex + "px",
-      top: info.mousey + "px",
+      left: x+ "px",
+      top: y + "px",
     }
     // console.log(info);
   }
