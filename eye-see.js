@@ -98,6 +98,9 @@ class EyeSee extends SvgPlus {
           await this.updateMousePosition(this.mouse_position);
         if (this.updateEyePosition instanceof Function && this.eye_position instanceof Vector)
           await this.updateEyePosition(this.eye_position);
+
+        this.setCursorPosition("own", this.eye_position);
+
       }
     }, 25);
   }
@@ -125,6 +128,18 @@ class EyeSee extends SvgPlus {
     this.login_window.toggleAttribute("hidden", user !== null);
   }
 
+  setCursorPosition(pid, v){
+    let [pos, size] = this.pdf.canvas.bbox;
+
+    if (!(pid in this.cursors)) {
+      this.cursors[pid] = this.cursors.createChild(Cursor);
+      this.cursors[pid].name = pid;
+    }
+
+    v = v.mul(size).add(pos);
+
+    this.cursors[pid].addPoint(v)
+  }
 
 
   // update methods called from an update in the database
@@ -139,17 +154,9 @@ class EyeSee extends SvgPlus {
   }
 
   async patientUpdate(patients) {
-    let [pos, size] = this.pdf.canvas.bbox;
     for (let pid in patients) {
-      if (!(pid in this.cursors)){
-        this.cursors[pid] = this.cursors.createChild(Cursor);
-        this.cursors[pid].name = pid;
-      }
-
       let v = new Vector(patients[pid]);
-      v = v.mul(size).add(pos);
-
-      this.cursors[pid].addPoint(v)
+      this.setCursorPosition(pid, v);
     }
   }
 
