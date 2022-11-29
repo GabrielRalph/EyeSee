@@ -62,3 +62,41 @@ div[hidden]{
   display: flex;
   gap: 0.2em;
 }
+
+eye-tracker-window {
+  position: relative;
+  display: block;
+  height: 0px;
+  width: 0px;
+  /* background: red; */
+}
+eye-tracker-window video {
+  height: 100%;
+  display: none;
+}
+eye-tracker-window canvas {
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+}
+
+eye-tracker-window .pointer {
+  display: block;
+  width: 7px;
+  height: 7px;
+  background: blue;
+  border-radius: 5px;
+  position: fixed;
+}
+
+svg.cursor {
+  position: fixed;
+  width: 300px;
+  height: 300px;
+  user-select: none;
+  pointer-events: none;
+  /* background: #3215; */
+  /* cursor: none; */
+}

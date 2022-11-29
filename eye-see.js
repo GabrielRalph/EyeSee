@@ -1,5 +1,9 @@
 import {SvgPlus, Vector} from "./SvgPlus/4.js"
-import {login, logout, addAuthChangeListener, makeSession, joinSession} from "./database-functions.js";
+import {login, logout, addAuthChangeListener, makeSession, joinSession, uploadPDF} from "./Database/database-functions.js";
+import {Cursor} from "./cursor.js"
+import {EyeTrackerWindow} from "./eye-tracker-window.js"
+import {PdfViewer} from "./pdf_viewer/pdf-viewer.js"
+
 class EyeSee extends SvgPlus {
   constructor(el) {
     super(el);
@@ -8,43 +12,63 @@ class EyeSee extends SvgPlus {
     this.fade = true;
   }
 
+  async joinSession(id, forcePatient){
+    let {jtool, isSessionOwner, eyeTracker} = this;
+    jtool.style.opacity = 0.5;
+    this.leaveSession();
+    let res = await joinSession(id, this, forcePatient);
+    if (res !== null) {
+      jtool.toggleAttribute("hidden", true);
+      if (!isSessionOwner) {
+        console.log("eye tracking");
+        await eyeTracker.start();
+      }
+    }
+    jtool.style.opacity = 1;
+    return res;
+  }
+
+  async makeSession(){
+    if (await makeSession()) {
+      await this.joinSession(this.uid);
+    }
+  }
+
   leaveSession(){
     if (this.unsubscribeSession instanceof Function) {
       this.unsubscribeSession();
     }
-    this.updateInfo = null;
-    this.updatePatientInfo = null;
-  }
-  async joinSession(id, forcePatient){
-    this.jtool.style.opacity = 0.5;
-    this.leaveSession();
-    let res = await joinSession(id, this, forcePatient);
-    if (res !== null) {
-      this.jtool.toggleAttribute("hidden", true);
-    }
-    this.jtool.style.opacity = 1;
-    return res;
   }
 
+  async uploadPDF(){
+    if (this.uid && this.isSessionOwner === true) {
+      await uploadPDF(this.uid, (e) => {
+        console.log(e);
+      });
+    }
+  }
+
+
   onconnect(){
+    this.pdf = document.createElement("pdf-viewer");
+    this.appendChild(this.pdf);
     this.pointer = this.createChild("div", {class: "pointer"});
     let logoutbtn = this.createChild("div", {class: "btn logout", content: "Logout"});
     logoutbtn.onclick = () => {logout()}
+    logoutbtn.oncontextmenu = (e) => {
+      e.preventDefault();
+      this.makeSession();
+    }
 
     let jtool = this.createChild("div", {class: "join-tool"});
     let jinput = jtool.createChild("input", {class: "joine"});
     let jbtn = jtool.createChild("div", {class: "btn", content: "join"});
     this.jtool = jtool;
-
     jbtn.onclick = async () => {
       let id = jinput.value;
       await this.joinSession(id, true);
     }
 
-    logoutbtn.oncontextmenu = async (e) => {
-      e.preventDefault();
-      await this.joinSession(this.uid);
-    }
 
     this.login_window = this.createChild("div", {class: "login-window"});
     let loginbtn = this.login_window.createChild("div", {class: "btn", content: "Login"});
@@ -52,14 +76,41 @@ class EyeSee extends SvgPlus {
     this.login_window.createChild("div", {class: "msg", content: "Login with Gmail to join or create a eye see session."});
 
 
-    this.loader = this.createChild("div", {class: "loader"})
+    this.eyeTracker = document.createElement("eye-tracker-window");
+    this.eyeTracker.addEventListener("prediction", async (e) => {
+      let v = e.position;
+
+      let [pos, size] = this.pdf.canvas.bbox;
+      v = v.sub(pos).div(size);
+
+      this.eye_position = v;
+    })
+    this.appendChild(this.eyeTracker);
+
+    this.cursors = this.createChild("div");
+
+    this.loader = this.createChild("div", {class: "loader"});
     addAuthChangeListener(this);
 
     setInterval(async () => {
-      // console.log('x');
-      // console.log(this.updateInfo);
-      await this.update();
+      if (this.uid !== null) {
+        if (this.updateMousePosition instanceof Function && this.mouse_position instanceof Vector)
+          await this.updateMousePosition(this.mouse_position);
+        if (this.updateEyePosition instanceof Function && this.eye_position instanceof Vector)
+          await this.updateEyePosition(this.eye_position);
+      }
     }, 25);
+  }
+
+  onmousemove(e) {
+    let p = new Vector(e);
+    let [pos, size] = this.bbox;
+    let pr = p.sub(pos).div(size);
+    this.mouse_position = pr;
+  }
+
+  onmouseleave(e) {
+    this.mouse_position = new Vector(-1);
   }
 
   onauthchange(user){
@@ -74,57 +125,45 @@ class EyeSee extends SvgPlus {
     this.login_window.toggleAttribute("hidden", user !== null);
   }
 
-  onmousemove(e) {
-    let p = new Vector(e);
+
+
+  // update methods called from an update in the database
+  async mouseUpdate(mpos) {
     let [pos, size] = this.bbox;
-    let pr = p.sub(pos).div(size);
-    this.mpos = pr;
-  }
-  onmouseleave(e) {
-    this.mpos = new Vector(-1);
-  }
-
-  async update(){
-    if (this.uid == null) return;
-    // console.log(this.fade);
-    if (this.fade && this.opacity > 0) {
-      this.opacity -= 0.02
-    } else if (!this.fade && this.opacity < 1) {
-      this.opacity += 0.05;
-    }
-    this.pointer.style.opacity = this.opacity;
-
-    if (this.updateInfo instanceof Function) {
-      let info = {
-        mousex: this.mpos.x,
-        mousey: this.mpos.y,
-      }
-      await this.updateInfo(info)
-    }
-
-    if (this.updatePatientInfo instanceof Function) {
-      let info = {
-
-      }
-      await this.updatePatientInfo(info);
-    }
-  }
-
-  onpatientinfo(info){
-    console.log(info);
-  }
-
-  oninfo(info) {
-    // this.mpos = new Vector(info.mousex, info.mousey);
-    // console.log(info);
-    let [pos, size] = this.bbox;
-    let [x, y] = [info.mousex * size.x, info.mousey * size.y]
-    this.fade = (x< 0 || y < 0)
+    let [x, y] = [mpos.x * size.x, mpos.y * size.y]
+    this.fade = (x< 0 || y < 0);
     this.pointer.styles = {
       left: x+ "px",
       top: y + "px",
     }
-    // console.log(info);
+  }
+
+  async patientUpdate(patients) {
+    let [pos, size] = this.pdf.canvas.bbox;
+    for (let pid in patients) {
+      if (!(pid in this.cursors)){
+        this.cursors[pid] = this.cursors.createChild(Cursor);
+        this.cursors[pid].name = pid;
+      }
+
+      let v = new Vector(patients[pid]);
+      v = v.mul(size).add(pos);
+
+      this.cursors[pid].addPoint(v)
+    }
+  }
+
+  async PDFUpdate(pdf_info){
+    let {url, page} = pdf_info;
+    let {pdf, _updating_pdf} = this;
+    if (!pdf.loading && !_updating_pdf) {
+      this._updating_pdf = true;
+      if (url != pdf.url) {
+        await pdf.loadPDF(url);
+      }
+      await pdf.renderPage(page);
+      this._updating_pdf = false;
+    }
   }
 }
 
