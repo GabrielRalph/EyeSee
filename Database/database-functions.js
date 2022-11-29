@@ -71,6 +71,7 @@ function initializeFirebase(config = firebaseConfig) {
   Database = getDatabase(App);
   Auth = getAuth();
   onAuthStateChanged(Auth, (userData) => {
+    console.log("auth state change: user data", userData);
     if (userData == null) {
       authChange(userData);
     } else {
