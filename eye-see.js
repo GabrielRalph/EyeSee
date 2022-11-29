@@ -2,7 +2,7 @@ import {SvgPlus, Vector} from "./SvgPlus/4.js"
 import {login, logout, addAuthChangeListener, makeSession, joinSession, uploadPDF} from "./Database/database-functions.js";
 import {Cursor} from "./cursor.js"
 import {EyeTrackerWindow} from "./eye-tracker-window.js"
-import {PdfViewer} from "./pdf_viewer/pdf-viewer.js"
+import {PdfViewer} from "./PDFViewer/pdf-viewer.js"
 
 class EyeSee extends SvgPlus {
   constructor(el) {
