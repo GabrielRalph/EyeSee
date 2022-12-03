@@ -3,6 +3,7 @@ import {login, logout, addAuthChangeListener, makeSession, joinSession, uploadPD
 import {Cursor} from "./cursor.js"
 import {EyeTrackerWindow} from "./eye-tracker-window.js"
 import {PdfViewer} from "./PDFViewer/pdf-viewer.js"
+import {} from "./Loader/loader.js"
 
 class EyeSee extends SvgPlus {
   constructor(el) {
@@ -72,7 +73,13 @@ class EyeSee extends SvgPlus {
 
     this.login_window = this.createChild("div", {class: "login-window"});
     let loginbtn = this.login_window.createChild("div", {class: "btn", content: "Login"});
-    loginbtn.onclick = () => {login()}
+    loginbtn.onclick = () => {
+      this.loader.toggleAttribute("hidden", false);
+      // window.setTimeout(() => {
+        login()
+
+      // }, 2000);
+    }
     this.login_window.createChild("div", {class: "msg", content: "Login with Gmail to join or create a eye see session."});
 
 
@@ -89,7 +96,7 @@ class EyeSee extends SvgPlus {
 
     this.cursors = this.createChild("div");
 
-    this.loader = this.createChild("div", {class: "loader"});
+    this.loader = this.createChild("div", {class: "loader", content: "<wavey-circle-loader></wavey-circle-loader>"});
     addAuthChangeListener(this);
 
     setInterval(async () => {
@@ -131,14 +138,16 @@ class EyeSee extends SvgPlus {
   setCursorPosition(pid, v){
     let [pos, size] = this.pdf.canvas.bbox;
 
-    if (!(pid in this.cursors)) {
-      this.cursors[pid] = this.cursors.createChild(Cursor);
-      this.cursors[pid].name = pid;
+    if (typeof pid === "string" && v instanceof Vector) {
+      if (!(pid in this.cursors)) {
+        this.cursors[pid] = this.cursors.createChild(Cursor);
+        this.cursors[pid].name = pid;
+      }
+
+      v = v.mul(size).add(pos);
+
+      this.cursors[pid].addPoint(v)
     }
-
-    v = v.mul(size).add(pos);
-
-    this.cursors[pid].addPoint(v)
   }
 
 

@@ -1,11 +1,35 @@
 import {SvgPlus, Vector} from "./SvgPlus/4.js"
 
+function setUserMediaVariable(){
+  if (navigator.mediaDevices === undefined) {
+    navigator.mediaDevices = {};
+  }
+
+  if (navigator.mediaDevices.getUserMedia === undefined) {
+    navigator.mediaDevices.getUserMedia = function(constraints) {
+
+      // gets the alternative old getUserMedia is possible
+      var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+
+      // set an error message if browser doesn't support getUserMedia
+      if (!getUserMedia) {
+        return Promise.reject(new Error("Unfortunately, your browser does not support access to the webcam through the getUserMedia API. Try to use the latest version of Google Chrome, Mozilla Firefox, Opera, or Microsoft Edge instead."));
+      }
+
+      // uses navigator.getUserMedia for older browsers
+      return new Promise(function(resolve, reject) {
+        getUserMedia.call(navigator, constraints, resolve, reject);
+      });
+    }
+  }
+}
+
+const camParams = { video: { width: { min: 320, ideal: 640, max: 1920 }, height: { min: 240, ideal: 480, max: 1080 }, facingMode: "user" } };
+
 class EyeTrackerWindow extends SvgPlus {
   constructor(el) {
     super(el);
   }
-
-
 
 
   onconnect(){
@@ -25,6 +49,7 @@ class EyeTrackerWindow extends SvgPlus {
 
 
   ondblclick(){this.start();}
+
 
   async start(){
     if (await this.startWebcam()) {
@@ -51,13 +76,14 @@ class EyeTrackerWindow extends SvgPlus {
   }
 
 
-
   async startWebcam(){
+
     let {video} = this;
     this.started = null;
     try {
-
-      let stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setUserMediaVariable();
+      let stream = await navigator.mediaDevices.getUserMedia( camParams );
+      console.log(stream);
       video.srcObject = stream;
     } catch (e) {
       this.started = false;
@@ -66,7 +92,6 @@ class EyeTrackerWindow extends SvgPlus {
     this.started = true;
     return true;
   }
-
 
   captureFrame(){
     let {canvas, video} = this;
