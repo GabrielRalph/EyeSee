@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+    <link href =  "./calibration.css" rel="stylesheet"/>
+    <script src = "../EyeTracker/face-tracker.js"></script>
+    <script type = "module" src = "./calibration-window.js"></script>
+    <script type = "module" src = "../EyeTracker/eye-tracker-window.js"></script>
+  </head>
+  <body>
+    <div class = "session-frame">
+      <div class = "content-frame">
+        <img src = "../Icons/example-01.svg" />
+        <div class = "overlay">
+          <eye-tracker-window>
+          </eye-tracker-window>
+
+          <calibration-window>
+          </calibration-window>
+        </div>
+        <div class = "run-btn">
+          Start Eye Tracking
+        </div>
+      </div>
+    </div>
+
+  </body>
+
+  <script type = "module">
+    import {Cursor} from "../Cursor/cursor.js";
+    let runbtn = document.querySelector(".run-btn");
+    let frame = document.querySelector(".overlay");
+    let righteye = document.querySelector(".right-eye");
+    let lefteye = document.querySelector(".left-eye");
+    let eyetrack = document.querySelector("eye-tracker-window");
+    let calib = document.querySelector("calibration-window");
+    let cursor = new Cursor();
+    frame.appendChild(cursor);
+
+    async function startEyeTracking(){
+      try {
+        await calib.calibrate(eyetrack);
+      } catch (e) {
+        console.log(e);
+        console.log("some error eccured starting the eyetracker");
+      }
+    }
+
+    runbtn.onclick = () => {
+      runbtn.remove();
+      startEyeTracking()
+    }
+
+    eyetrack.addEventListener("prediction", (e) => {
+      let pred = e.position;
+      if (calib._calibrating)
+        pred = null;
+      console.log("pred: " + pred);
+      cursor.addPoint(pred);
+    })
+
+
+
+
+  </script>
+
+  <style>
+    .session-frame {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+    .content-frame {
+      position: relative;
+      display: content;
+    }
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    .content-frame img{
+      max-width: 100%;
+      max-height: 100%;
+    }
+    eye-tracker-window {
+      display: none;
+    }
+    body {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+    }
+
+    svg.cursor {
+      position: fixed;
+      width: 300px;
+      height: 300px;
+      user-select: none;
+      pointer-events: none;
+    }
+    .run-btn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 0.5em;
+      border-radius: 0.5em;
+      border: 2px solid black;
+      cursor: pointer;
+    }
+  </style>
+</html>
