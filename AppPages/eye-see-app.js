@@ -1,4 +1,5 @@
-import {SvgPlus} from "../SvgPlus/4.js"
+import {SvgPlus, Vector} from "../SvgPlus/4.js"
+import {} from "../Icons/paste-icon.js"
 import {sendRequest, addAuthChangeListener, login, logout, createSession, isCreator, removeCurrentSession} from "../Database/database-functions.js"
 import {addUpdateHandler, broadcast, joinSession} from "../Database/session.js";
 window.closestInputValue = function (node) {
@@ -12,22 +13,6 @@ window.closestInputValue = function (node) {
   return input;
 }
 
-async function copyTextToClipboard(text) {
-  let success = false;
-  if (!navigator.clipboard) {
-    success = fallbackCopyTextToClipboard(text);
-  } else {
-    try {
-      await navigator.clipboard.writeText(text);
-      success = true;
-    } catch(e) {
-      console.log('copy failed');
-    }
-  }
-
-  return success
-}
-window.copyTextToClipboard = copyTextToClipboard;
 
 
 class EyeSeeApp extends SvgPlus{
@@ -45,14 +30,28 @@ class EyeSeeApp extends SvgPlus{
           }
         }
       },
-      patients: (value) => {
-        for (let key of value) {
-          console.log(key, value);
+      eyes: (value) => {
+        // if (size.x != 0 && size.y != 0) {
+          for (let key in value) {
+            let eyes = value[key].eyes;
+            let pos = this.toScreen(eyes);
+            if (pos) {
+              this.cursors.setCursorPosition(pos, key, "blob")
+            }
+          }
+        },
+        mouse: (value) => {
+          let pos = this.toScreen(new Vector(value));
+          console.log(pos);
+          if (pos) {
+            this.cursors.setCursorPosition(pos, "mouse", "default");
+          }
         }
-      }
+      // }
     }
     addUpdateHandler((type, value) => {
       if (type in handlers) handlers[type](value);
+
     })
   }
 
@@ -74,15 +73,40 @@ class EyeSeeApp extends SvgPlus{
       if (this.calibrator.calibrating) {pred = null;}
       this.cursors.setCursorPosition(pred, "eye-position", "blob");
 
-      if (this.pdfViewer && pred) {
-        let [pos, size] = this.pdfViewer.bbox;
-        broadcast.eye(pred.sub(pos).div(size));
-      }
+
+      let eyePosRel = this.toRel(pred);
+      broadcast.eye(eyePosRel);
     })
+
+    this.pdfViewer.onmousemove = (e) => {
+      let mousePosRel = this.toRel(new Vector(e));
+      broadcast.mouse(mousePosRel);
+    }
 
     this.calibrator.eyeTracker = this.eyeTracker;
 
     addAuthChangeListener(this)
+  }
+
+  toScreen(rel) {
+    let pos = null;
+    if (this.pdfViewer && this.pdfViewer.canvas) {
+    let [cpos, size] = this.pdfViewer.canvas.bbox;
+      if (rel instanceof Vector) {
+        pos = rel.mul(size).add(cpos);
+      }
+    }
+    return pos;
+  }
+  toRel(pos){
+    let rel = null;
+    if (this.pdfViewer && this.pdfViewer.canvas) {
+      let [cpos, size] = this.pdfViewer.canvas.bbox;
+      if (pos instanceof Vector && size.x != 0 && size.y != 0) {
+        rel = pos.sub(cpos).div(size);
+      }
+    }
+    return rel;
   }
 
   async onauthchange(user) {

@@ -5,14 +5,17 @@ class Cursor extends SvgPlus {
     super(el);
     this.opacity = 0;
     this.position = null;
-    this.maxOpacity = 0.75;
+    this.maxOpacity = 0.8;
     this.opacityIncrement = 0.1;
+    this.delta = 0;
+    this.lambda = 0.97;
   }
 
   // main public setter / getter
   set position(point) {
     point = this.parsePoint(point);
     this._position = point;
+
     this._new_position = point !== null;
   }
   get position(){
@@ -36,10 +39,19 @@ class Cursor extends SvgPlus {
   }
 
   render() {
-    let {position} = this;
-    if (position == null) {
+    let {position, lastRenderPos, lambda} = this;
+    let delta = 0;
+    if (position instanceof Vector && lastRenderPos instanceof Vector) {
+      delta = position.sub(lastRenderPos).norm();
+      // console.log(delta);
+    }
+    this.delta = this.delta * lambda + (1 - lambda) * delta;
+    delta = this.delta;
+    if (position == null || delta < 0.1) {
       this.opacity -= this.opacityIncrement;
+      // console.log('y');
     } else {
+      // console.log('x');
       this.opacity += this.opacityIncrement;
       let {x, y} = position;
       this.styles = {
@@ -49,6 +61,7 @@ class Cursor extends SvgPlus {
         transform: "translate(-50%, -50%)"
       }
     }
+    this.lastRenderPos = position
     this._new_position = false;
   }
 
@@ -175,6 +188,7 @@ const CursorsByType = {
   "blob": BlobCursor,
   "default": Cursor,
 }
+
 function makeCursor(type) {
   let cursor = null;
   if (type in CursorsByType) {
@@ -211,6 +225,11 @@ class CursorGroup extends SvgPlus {
     window.requestAnimationFrame(next);
   }
 
+  clear(){
+    this.innerHTML = "";
+    this.cursors = {};
+  }
+
   removeCursor(name = "default") {
     if (name in cursors) {
       this.cursors[name].remove();
@@ -222,6 +241,7 @@ class CursorGroup extends SvgPlus {
 
     if (!(name in cursors)) {
       let cursor = makeCursor(type);
+      cursor.setAttribute("name", name);
       this.cursors[name] = cursor;
       this.appendChild(cursor);
     }
