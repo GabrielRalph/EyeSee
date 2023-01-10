@@ -100,6 +100,7 @@ class EyeTrackerWindow extends SvgPlus {
 
   stop(){
     this.stopPredictions();
+    // console.log(this.webC);
     if (this.webcamStream) {
       for (let track of this.webcamStream.getTracks()) {
         track.stop();
@@ -177,12 +178,13 @@ class EyeTrackerWindow extends SvgPlus {
         stop = true;
       }
       let next = async () => {
-        try {
-          await this.makePrediction();
-        } catch (e) {
-        }
         if (!stop) {
+          try {
+            await this.makePrediction();
+          } catch (e) {
+          }
           setTimeout(next, 1000/this.predictionFrequency);
+        } else {
         }
       }
       setTimeout(next, 1000/this.predictionFrequency);

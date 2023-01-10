@@ -251,7 +251,7 @@ export async function createSession(file, progressCallback, dummy = true) {
 
 export async function sendRequest(info){
   try {
-    await setUser("info", info);
+    await setUserData("info", info);
   } catch(e) {
     console.log(e);
   }
