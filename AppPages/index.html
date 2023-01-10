@@ -6,21 +6,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100;200;300;400;600&display=swap" rel="stylesheet">
-    <link href = "./AppPages/main.css" rel = "stylesheet" />
-    <link href = "./Calibration/calibration.css" rel = "stylesheet" />
-    <script src = "./Loader/loader.js" type = "module"></script>
-    <script src = "./EyeTracker/face-tracker.js"></script>
-    <script type = "module" src = "./Cursor/cursor.js"></script>
-    <script type = "module" src = "./Calibration/calibration-window.js"></script>
-    <script type = "module" src = "./EyeTracker/eye-tracker-window.js"></script>
+    <link href = "./main.css" rel = "stylesheet" />
+    <link href = "../Calibration/calibration.css" rel = "stylesheet" />
+    <script src = "../Loader/loader.js" type = "module"></script>
+    <script src = "../EyeTracker/face-tracker.js"></script>
+    <script type = "module" src = "../Cursor/cursor.js"></script>
+    <script type = "module" src = "../Calibration/calibration-window.js"></script>
+    <script type = "module" src = "../EyeTracker/eye-tracker-window.js"></script>
     <script src="https://mozilla.github.io/pdf.js/build/pdf.js"></script>
-    <script type = "module" src = "./PDFViewer/pdf-viewer.js"></script>
-    <script src = "./AppPages/eye-see-app.js" type = "module"></script>
+    <script type = "module" src = "../PDFViewer/pdf-viewer.js"></script>
+    <script src = "./eye-see-app.js" type = "module"></script>
   </head>
   <body>
     <eye-see-app user = "clinician">
       <div class = "app-window" name = "sign-in">
         <div class = "btn top-left" onclick = "app.signIn()">Sign In</div>
+        <div class = "btn top-right">Request Licence</div>
         <div class = "center-card">
           <h2>Welcome to EyeSee by Squid</h2>
           <p>
@@ -52,20 +53,12 @@
             Join Session
           </div>
           <div is-clinician>
-            <!-- <div>
+            <div>
               or
-            </div> -->
+            </div>
             <div class = "btn" onclick = "app.page = 'create-session'">
               Create Session
             </div>
-          </div>
-          <div>
-            <div is-in-session class = "btn" onclick = "app.resumeSession()">
-              Resume Session
-            </div>
-          </div>
-          <div is-in-session is-clinician class = "btn" onclick = "app.removeCurrentSession()">
-            End Session
           </div>
         </div>
       </div>
@@ -126,7 +119,7 @@
         </div>
       </div>
 
-      <div class = "app-window" name = "error">
+      <div shown class = "app-window" name = "error">
         <div class = "btn top-left" onclick = "app.home()">
           Home
         </div>
@@ -157,13 +150,13 @@
               </div>
             </pdf-viewer>
             <div name = "controls">
-              <div class = "btn top-left" onclick = "app.leaveSession()">
+              <div class = "btn top-left" onclick = "app.home()">
                 Home
               </div>
-              <div is-clinician-session onclick = "app.nextPDFPage()" class = "btn bottom-right">
+              <div onclick = "app.pdfViewer.page++" class = "btn bottom-right">
                 &#62;
               </div>
-              <div is-clinician-session onclick = "app.lastPDFPage()"  class = "btn bottom-left">
+              <div onclick = "app.pdfViewer.page--"  class = "btn bottom-left">
                 &#60;
               </div>
               <div class = "btn top-right">

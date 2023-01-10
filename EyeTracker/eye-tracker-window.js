@@ -1,5 +1,13 @@
 import {SvgPlus, Vector} from "../SvgPlus/4.js"
 
+async function parallel() {
+  let res = [];
+  for (let argument of arguments) {
+    res.push(await argument);
+  }
+  return res;
+}
+
 function setUserMediaVariable(){
   if (navigator.mediaDevices === undefined) {
     navigator.mediaDevices = {};
@@ -29,39 +37,99 @@ const camParams = { video: { width: { min: 320, ideal: 640, max: 1920 }, height:
 class EyeTrackerWindow extends SvgPlus {
   constructor(el) {
     super(el);
+    this.predictionFrequency = 30;// Hz
   }
 
-
   onconnect(){
-    let video = this.createChild("video");
+    this.styles = {background: "white"}
+
+    this.message = this.querySelector("[name = 'message']");
+    this.errorMessage = this.querySelector("[name = 'error']");
+    this.innerHTML = "";
+
+    let video = document.createElement("video");
     video.toggleAttribute("autoplay", true);
     video.toggleAttribute("muted", true);
 
-    let canvas = this.createChild("canvas");
+    let canvas = document.createElement("canvas");
 
     this.video = video;
     this.canvas = canvas;
+    this.ctx = canvas.getContext("2d", {willReadFrequently: true});
   }
 
+  async fade(element, time, fadeIn) {
+    await this.waveTransition((a) => {
+      element.style.setProperty("opacity", a);
+    }, time, fadeIn);
+  }
 
+  async animateStartMessage(){
+    this.innerHTML = "";
+    let {message} = this;
+    let pointer = message.querySelector(".pointer");
 
+    message.style.opacity = 0;
+    this.appendChild(message);
+    await this.fade(message, 350, true);
+    await this.fade(pointer, 500, false);
+    await this.fade(pointer, 500, true);
 
-  async start(){
-    if (await this.startWebcam()) {
-      setInterval(async () => {
-        try {
-          await this.makePrediction();
-        } catch (e) {
-          console.log(e);
-          throw "prediction failed"
-        }
-      }, 50)
-    } else {
-      throw "web cam failed to start";
+    await this.fade(message, 350, false);
+  }
+
+  async showErrorMessage(){
+    this.innerHTML = "";
+    let {errorMessage} = this;
+    let tryAgain = errorMessage.querySelector("[name = 'try-again']");
+    let home = errorMessage.querySelector("[name = 'home']");
+
+    errorMessage.style.opacity = 0;
+    this.appendChild(errorMessage);
+
+    return new Promise(async (resolve, reject) => {
+      tryAgain.onclick = () => {
+        resolve(true);
+      }
+      home.onclick = () => {
+        resolve(false);
+      }
+      this.fade(errorMessage, 350, true);
+    });
+  }
+
+  stop(){
+    this.stopPredictions();
+    if (this.webcamStream) {
+      for (let track of this.webcamStream.getTracks()) {
+        track.stop();
+      }
+      this.webcamStream = null;
     }
   }
+  async start(){
+    if (this.__starting) return;
+    this.__starting = true;
+    this.styles = {display: "block", opacity: 1};
+    let done = false;
+    let webCamStarted = false;
+    while (!done) {
+      webCamStarted = (await parallel(this.startWebcam(), this.animateStartMessage()))[0];
+      if (webCamStarted) {
+        done = true;
+      } else {
+        done = !(await this.showErrorMessage());
+      }
+    }
 
-
+    if (webCamStarted) {
+      await this.fade(this, 350, false);
+      this.styles = {display: "none"}
+      this.startPredictions();
+    }
+    this.__starting = false;
+    return webCamStarted;
+  }
 
   set pointerPos(pos) {
     if (pos !== null) {
@@ -76,13 +144,13 @@ class EyeTrackerWindow extends SvgPlus {
     }
   }
 
-
   async startWebcam(){
     let {video} = this;
     this.started = null;
     try {
       setUserMediaVariable();
       let stream = await navigator.mediaDevices.getUserMedia( camParams );
+      this.webcamStream = stream;
       video.srcObject = stream;
     } catch (e) {
       this.started = false;
@@ -91,17 +159,36 @@ class EyeTrackerWindow extends SvgPlus {
     this.started = true;
     return true;
   }
-
   captureFrame(){
-    let {canvas, video} = this;
+    let {canvas, video, ctx} = this;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
     let {width, height} = canvas;
 
-    let ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   }
+
+
+  startPredictions(){
+    if (this.started) {
+      let stop = false;
+      this.stopPredictions = () => {
+        stop = true;
+      }
+      let next = async () => {
+        try {
+          await this.makePrediction();
+        } catch (e) {
+        }
+        if (!stop) {
+          setTimeout(next, 1000/this.predictionFrequency);
+        }
+      }
+      setTimeout(next, 1000/this.predictionFrequency);
+    }
+  }
+  stopPredictions(){}
 
   addCalibrationPoint(screenX, screenY, type = "click") {
     if (this.lastEyePatches) {
@@ -113,20 +200,37 @@ class EyeTrackerWindow extends SvgPlus {
     let {video, canvas} = this;
     let {FaceTracker} = window;
     if (FaceTracker) {
+
+      // capture webcam frame into canvas
       this.captureFrame();
       let eyePatches = null;
+
+      // get eye patches
       try {
         let faces = await FaceTracker.predictFaces(video);
         eyePatches = FaceTracker.getEyePatches(faces, canvas);
       } catch (e) {
       }
+      // if (eyePatches) {
+      //   let {right, left} = eyePatches;
+      //   this.lefteye.width = left.width;
+      //   this.lefteye.height = left.height;
+      //   this.lefteye.getContext('2d').putImageData(left.patch, 0, 0);
+      //   this.righteye.width = right.width;
+      //   this.righteye.height = right.height;
+      //   this.righteye.getContext('2d').putImageData(right.patch, 0, 0);
+      // }
+
       this.lastEyePatches = eyePatches;
 
+      // attempt to predict location of eyes
       let eyePos = null;
       try {
         eyePos = FaceTracker.predictIrises(eyePatches);
       } catch (e) {
       }
+
+      // update position and dispatch prediction event
       this.pointerPos = eyePos;
       if (eyePos)
         eyePos = new Vector(eyePos);

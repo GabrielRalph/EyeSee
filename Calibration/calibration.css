@@ -1,11 +1,15 @@
+:root {
+  --p-color: #684287;
+  --p-outline: 3px;
+  --p-size: 2vmin;
+}
+
 calibration-window {
   display: inline-block;
   background: white;
-  font-size: 7vmin;
   width: 100%;
   height: 100%;
-  --p-color: #684287;
-  --margin: 1em;
+  --margin: calc(var(--p-size) * 1.5);
 }
 calibration-window > div {
   margin: var(--margin);
@@ -14,14 +18,7 @@ calibration-window > div {
   position: relative;
 }
 
-.message {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-  white-space: pre;
-}
+
 
 .pointer[clickable] {
   cursor: pointer;
@@ -29,26 +26,25 @@ calibration-window > div {
 .pointer {
   position: absolute;
   transform: translate(-50%, -50%);
-  font-size: 0.4em;
-  width: 1.5em;
-  height: 1.5em;
-  line-height: 1.5em;
-  border-radius: 1em;
+  font-size: calc(var(--p-size) / 3);
+  width: var(--p-size);
+  height: var(--p-size);
+  line-height: var(--p-size);
+  border-radius: var(--p-size);
   background: var(--p-color);
   color: white;
   text-align: center;
-  --p-outline: 3px;
 }
 .pointer::before {
   display: block;
   content: " ";
   position: absolute;
   opacity: 0.33;
-  width: 1.5em;
-  height: 1.5em;
+  width: var(--p-size);
+  height: var(--p-size);
   padding: calc(2 * var(--p-outline));
   margin-top: calc(-3 * var(--p-outline));
   margin-left: calc(-3 * var(--p-outline));
-  border-radius: 2em;
+  border-radius: calc(var(--p-size) * 2);
   border: var(--p-outline) solid var(--p-color);
 }

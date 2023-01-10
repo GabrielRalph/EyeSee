@@ -4,7 +4,9 @@
     <meta charset="utf-8">
     <title></title>
     <link href =  "./calibration.css" rel="stylesheet"/>
+    <link href =  "../AppPages/main.css" rel="stylesheet"/>
     <script src = "../EyeTracker/face-tracker.js"></script>
+    <script type = "module" src = "../Cursor/cursor.js"></script>
     <script type = "module" src = "./calibration-window.js"></script>
     <script type = "module" src = "../EyeTracker/eye-tracker-window.js"></script>
   </head>
@@ -13,59 +15,90 @@
       <div class = "content-frame">
         <img src = "../Icons/example-01.svg" />
         <div class = "overlay">
-          <eye-tracker-window>
-          </eye-tracker-window>
-
           <calibration-window>
+            <div name = "message">
+              <div class = "center-card">
+                <h2>
+                  Focus on the purple dots<br />
+                  to calibrate eye tracking.
+                </h2>
+                <div name = "run" class = "btn">
+                  Start Calibration
+                </div>
+              </div>
+            </div>
           </calibration-window>
         </div>
-        <div class = "run-btn">
-          Start Eye Tracking
+        <div class = "overlay">
+          <eye-tracker-window>
+            <div name = "message">
+              <div class = "center-card">
+                <h1>Starting Eye Tracker</h1>
+                <div class = "row">
+                  <div class = "pointer" style = "--p-size: 3.5vmin; --p-color: #f01c1c; position: relative; transform: none">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div name = "error">
+              <div class = "center-card">
+                <h2>Eye See was unable to access your web camera.</h2>
+                <p>Check your webcam privacy settings or disable other applications that are using your webcam and try again.</p>
+                  <div name = "try-again" class = "btn">
+                    Try Again
+                  </div>
+                  <br />
+                  <div name = "home" onclick = "app.home()" class = "btn">
+                    Home
+                  </div>
+              </div>
+            </div>
+          </eye-tracker-window>
         </div>
+        <cursor-group></cursor-group>
       </div>
     </div>
 
   </body>
 
   <script type = "module">
-    import {Cursor} from "../Cursor/cursor.js";
-    let runbtn = document.querySelector(".run-btn");
-    let frame = document.querySelector(".overlay");
-    let righteye = document.querySelector(".right-eye");
-    let lefteye = document.querySelector(".left-eye");
     let eyetrack = document.querySelector("eye-tracker-window");
     let calib = document.querySelector("calibration-window");
-    let cursor = new Cursor();
-    frame.appendChild(cursor);
-
-    async function startEyeTracking(){
-      try {
-        await calib.calibrate(eyetrack);
-      } catch (e) {
-        console.log(e);
-        console.log("some error eccured starting the eyetracker");
-      }
-    }
-
-    runbtn.onclick = () => {
-      runbtn.remove();
-      startEyeTracking()
-    }
+    let cursors = document.querySelector("cursor-group");
 
     eyetrack.addEventListener("prediction", (e) => {
       let pred = e.position;
-      if (calib._calibrating)
-        pred = null;
+      if (calib.calibrating) {pred = null;}
+
       console.log("pred: " + pred);
-      cursor.addPoint(pred);
+      cursors.setCursorPosition(pred, "eye-position", "blob");
     })
+    calib.eyeTracker = eyetrack;
 
+    async function startEyeTracking(){
+      await eyetrack.start();
+      await calib.calibrate();
+    }
 
+    window.ondblclick = () => {
+      startEyeTracking();
+    }
 
 
   </script>
 
   <style>
+
+    .my-eyes canvas {
+      width: 200px;
+      height: 150px;
+    }
+    .mouse-cursor {
+      width: 10px;
+      height: 10px;
+      background: blue;
+    }
     .session-frame {
       display: flex;
       justify-content: center;
@@ -87,9 +120,7 @@
       max-width: 100%;
       max-height: 100%;
     }
-    eye-tracker-window {
-      display: none;
-    }
+
     body {
       position: fixed;
       top: 0;
@@ -118,5 +149,6 @@
       border: 2px solid black;
       cursor: pointer;
     }
+    .my-eye
   </style>
 </html>

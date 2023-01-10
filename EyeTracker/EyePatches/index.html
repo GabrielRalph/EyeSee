@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js" crossorigin="anonymous"></script> -->
+ <!-- <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6/control_utils.js" crossorigin="anonymous"></script> -->
+ <!-- <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js" crossorigin="anonymous"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src = "./mediapipefm.js"></script>
+  </head>
+  <body>
+    <div style = "position: relative">
+      <video autoplay muted ></video>
+      <div style = "position: absolute; top: 0; left: 0; right: 0; bottom: 0;">
+        <canvas style = "position: absolute; top: 0; left: 0; right: 0; bottom: 0;" name = "image" ></canvas>
+        <canvas style = "position: absolute; top: 0; left: 0; right: 0; bottom: 0;" name = "keypoints"></canvas>
+      </div>
+    </div>
+  </body>
+
+  <script>
+  const meshlines = [
+    [246, 161, 160, 159, 158, 157, 173],
+    [33, 7, 163, 144, 145, 153, 154, 155, 133],
+    [466, 388, 387, 386, 385, 384, 398],
+    [263, 249, 390, 373, 374, 380, 381, 382, 362],
+    [473, 474, 475, 476, 477, 473],
+    [468, 469, 470, 471, 472, 468]
+  ]
+  let video = document.querySelector("video");
+  let canvas = document.querySelector("canvas[name = 'image']");
+  let output = document.querySelector("canvas[name = 'keypoints']");
+  let ctx = canvas.getContext("2d", {willReadFrequently: true});
+  let kpctx = output.getContext('2d');
+  function setUserMediaVariable(){
+    if (navigator.mediaDevices === undefined) {
+      navigator.mediaDevices = {};
+    }
+
+    if (navigator.mediaDevices.getUserMedia === undefined) {
+      navigator.mediaDevices.getUserMedia = function(constraints) {
+
+        // gets the alternative old getUserMedia is possible
+        var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+
+        // set an error message if browser doesn't support getUserMedia
+        if (!getUserMedia) {
+          return Promise.reject(new Error("Unfortunately, your browser does not support access to the webcam through the getUserMedia API. Try to use the latest version of Google Chrome, Mozilla Firefox, Opera, or Microsoft Edge instead."));
+        }
+
+        // uses navigator.getUserMedia for older browsers
+        return new Promise(function(resolve, reject) {
+          getUserMedia.call(navigator, constraints, resolve, reject);
+        });
+      }
+    }
+  }
+
+  function drawCircle(cx, cy, hue, r = 3){
+
+    const circle = new Path2D(`M${cx + r},${cy}a${r},${r},0,1,0,${2*r},0a${r},${r},0,0,0,${-2*r},0`);
+    kpctx.fillStyle = `hsl(${hue}, 100%, 50%)`
+    kpctx.fill(circle);
+  }
+  function clear(){
+    kpctx.clearRect(0, 0, output.width, output.height)
+  }
+
+  function drawPath(path, sx, sy, hue = 0){
+        console.log(path);
+        let str = "";
+        for (let {x, y} of path) {
+          if (str === "") str += "M";
+          else str += "L";
+          str += `${sx * (1 - x)},${sy * y}`;
+        }
+        console.log(str);
+        const pathstroke = new Path2D(str);
+        ctx.lineWidth = 4;
+        kpctx.strokeStyle = `red`
+        kpctx.stroke(pathstroke);
+  }
+
+  const camParams = { video: { width: { min: 320, ideal: 640, max: 1920 }, height: { min: 240, ideal: 480, max: 1080 }, facingMode: "user" } };
+
+  let webcamstarted = false;
+  async function startWebcam(){
+    try {
+      setUserMediaVariable();
+      let stream = await navigator.mediaDevices.getUserMedia( camParams );
+      video.srcObject = stream;
+    } catch (e) {
+      return false
+    }
+    webcamstarted = true;
+  }
+
+  function captureFrame() {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    let {width, height} = canvas;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  }
+
+  function drawEyes(points, image){
+    let width = image.width;
+    let height = image.height;
+    output.width = width;
+    output.height = height;
+    clear();
+    if (points) {
+      for (let meshline of meshlines) {
+        let keypoints = meshline.map((e) => points[e]);
+        let i = 0;
+        drawPath(keypoints, width, height)
+      }
+    }
+  }
+
+  function onResults(res){
+    let {image, multiFaceLandmarks} = res;
+
+    try {
+      clear();
+      let points = multiFaceLandmarks[0];
+      drawEyes(points, image);
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  setInterval(async () => {
+    if (webcamstarted) {
+      captureFrame();
+      if (window.MyFaceMesh) {
+        try {
+          let res = await window.MyFaceMesh.send({image: canvas});
+
+        } catch(e){
+          console.log(e);
+        }
+      }
+    }
+  }, 100)
+  window.ondblclick = () => {
+    startWebcam();
+    window.MyFaceMesh.onResults(onResults)
+  }
+
+  </script>
+
+
+</html>

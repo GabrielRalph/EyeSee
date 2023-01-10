@@ -39,4 +39,45 @@ class WaveyCircleLoader extends SvgPlus {
   }
 }
 
+
+class ProgressLoader extends SvgPlus {
+  onconnect(){
+    let r = 10;
+    let rpad = r * 1.2;
+    this.svg = this.createChild("svg", {
+      viewBox: `${-rpad} ${-rpad} ${2*rpad} ${2*rpad}`,
+      style: {
+        width: "100%",
+      }
+    });
+    this.r = r;
+  }
+
+
+  set progress(value) {
+    let {svg, r} = this;
+
+    svg.innerHTML = "";
+    if (typeof value === "number") {
+      let theta1 = Math.PI / 2;
+      let theta2 = Math.PI / 2 + 2 * Math.PI * value;
+
+      let p1 = new Vector(Math.cos(theta1) * r, -Math.sin(theta1) * r);
+      let p2 = new Vector(Math.cos(theta2) * r, -Math.sin(theta2) * r);
+
+      let html =
+      svg.innerHTML = `
+      <path style = "fill: none; stroke: black; stroke-linecap: round;" d = "M${p1}A${r},${r},0,${value > 0.5 ? 1 : 0},0,${p2}"></path>
+      `;
+      svg.createChild("text", {
+        content: `${Math.round(value * 100)}%`,
+        "font-size": 2.5,
+        "text-anchor": "middle",
+        y: 1
+      });
+    }
+  }
+}
+
 SvgPlus.defineHTMLElement(WaveyCircleLoader);
+SvgPlus.defineHTMLElement(ProgressLoader);

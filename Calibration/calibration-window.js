@@ -23,8 +23,12 @@ function dotgrid(size, count) {
 class CalibrationWindow extends SvgPlus {
 
   onconnect(){
-    this.innerHTML = "";
-    this.style = {opacity: 0};
+    this.message = this.querySelector("[name = 'message']");
+    this.startButton = this.message.querySelector("[name = 'run']");
+    // console.log(this.startButton);
+    if (!this.startButton) this.startButton = this.message;
+    this.innerHTML = ""
+
     let mbox = this.createChild("div");
     this.pointer = mbox.createChild("div", {
       class: "pointer",
@@ -32,70 +36,56 @@ class CalibrationWindow extends SvgPlus {
         opacity: 0,
       }
     });
-    this.message = mbox.createChild("div", {
-      class: "message",
-      style: {
-        opacity: 0,
-      },
-      content: `Focus on the center of the dots\nto calibrate eye tracking`,
-    });
+    mbox.appendChild(this.message);
     this.mbox = mbox;
+
+    this.eyeTracker = null;
+  }
+
+  async waitForClick(){
+    return new Promise((resolve, reject) => {
+      this.startButton.onclick = () => {
+        resolve(true);
+      }
+    });
   }
 
   async fade(duration, fadeIn, elname = "pointer") {
     await this.waveTransition((opacity) => {
       let obj = typeof elname === "string" ? this[elname] : elname
-      obj.styles = {opacity: opacity};
+      obj.style.setProperty("opacity", opacity);
     }, duration, fadeIn);
   }
 
-  async connectEyeTracker(eyetracker) {
-    if (eyetracker) {
-      this.addEventListener("trigger", () => {
-        let point = this.point;
-        if (point != null) {
-          eyetracker.addCalibrationPoint(point.x, point.y)
-        }
-      })
-      try {
-        console.log('starting');
-        await eyetracker.start()
-      } catch(e) {
-        console.log(e);
-        return false;
-      }
-      return true;
-    }
-    return false;
-  }
 
-  async calibrate(eyetracker){
+
+  async calibrate(){
     if (this._calibrating) return;
-    this.styles = {cursor: "none"}
     this._calibrating = true;
-    // this.fade(300, true, this);
-    await this.fade(300, true, "message");
-    let proms = [delay(3000), this.connectEyeTracker(eyetracker)];
-    console.log(proms);
-    for (let prom of proms) {
-      console.log(prom);
-      await prom;
-      console.log(prom);
+    if (!this.eyeTracker) {
+      this.eyeTracker = document.querySelector("eye-tracker-window");
     }
+    this.styles = {opacity: 1};
+    await this.waitForClick();
 
+    this.styles = {cursor: "none"}
+    console.log('fade out');
     await this.fade(300, false, "message");
+    console.log('faded');
+
     let points = this.points;
     for (let point of points) {
       await this.triggerAt(point);
     }
-    this.fade(300, false, this)
+    await this.fade(300, false, this)
     this.styles = {cursor: "inherit"}
+    this.message.style.setProperty("opacity", 1);
     this._calibrating = false;
   }
 
   get points(){
     let [pos, size] = this.mbox.bbox;
-    return dotgrid(size, 3);
+    return dotgrid(size, 2);
   }
 
   get point(){
@@ -113,24 +103,37 @@ class CalibrationWindow extends SvgPlus {
     return this._calibrating;
   }
 
-  async triggerAt(point, triggers = 1) {
+  async triggerAt(point, triggers = 1, samples = 5) {
     let {pointer} = this;
     let [pos] = this.bbox;
     pointer.innerHTML = triggers > 1 ? 1 : "";
     this.pos = point;
     await this.fade(500, true, "pointer");
+    await delay(500);
     this._point = point.add(pos);
-    for (let s = 0; s < triggers; s++) {
-      pointer.innerHTML = triggers > 1 ? s + 1 : "";
-      await delay(333.333);
-      this.dispatchEvent(new Event("trigger"))
-      await delay(333.333);
-      this.dispatchEvent(new Event("trigger"))
-      await delay(333.333);
-
+    for (let t = 0; t < triggers; t++) {
+      pointer.innerHTML = triggers > 1 ? t + 1 : "";
+      let dtime = 1000 / (samples + 1);
+      await delay(dtime);
+      for (let s = 0; s < samples; s++) {
+        this.addCalibrationPoint();
+        await delay(dtime);
+      }
     }
     this._point = null;
     await this.fade(300, false, "pointer")
+  }
+
+  addCalibrationPoint() {
+    let {eyeTracker} = this;
+    if (eyeTracker != null) {
+      let point = this.point;
+      if (point != null) {
+        eyeTracker.addCalibrationPoint(point.x, point.y)
+      }
+    } else {
+      this.dispatchEvent(new Event("trigger"))
+    }
   }
 }
 
