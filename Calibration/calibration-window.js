@@ -57,17 +57,25 @@ class CalibrationWindow extends SvgPlus {
     }, duration, fadeIn);
   }
 
+  show(){
+    this.styles = {opacity: 1};
+  }
+
 
 
   async calibrate(){
     if (this._calibrating) return;
+    this.styles = {cursor: "inherit"}
+    this.message.style.setProperty("pointer-events", "all");
     this._calibrating = true;
     if (!this.eyeTracker) {
       this.eyeTracker = document.querySelector("eye-tracker-window");
     }
     this.styles = {opacity: 1};
+
     await this.waitForClick();
 
+    this.message.style.setProperty("pointer-events", "none");
     this.styles = {cursor: "none"}
     console.log('fade out');
     await this.fade(300, false, "message");
@@ -78,7 +86,6 @@ class CalibrationWindow extends SvgPlus {
       await this.triggerAt(point);
     }
     await this.fade(300, false, this)
-    this.styles = {cursor: "inherit"}
     this.message.style.setProperty("opacity", 1);
     this._calibrating = false;
   }

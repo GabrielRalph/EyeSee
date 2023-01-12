@@ -37,12 +37,15 @@
         <div class = "top-left btn" onclick = "app.signOut()">
             Sign Out
         </div>
-        <div class = "top-right btn" is-patient onclick = "app.page = 'request'">
+        <div class = "top-right btn" is-patient no-request-pending onclick = "app.page = 'request'">
           Request Licence
         </div>
-        <div class = "top-right btn" is-clinician>
-          My Account
+        <div is-patient is-request-pending class = "top-right btn" style = "opacity: 0.5; cursor: inherit">
+          Request Pending
         </div>
+        <!-- <div class = "top-right btn" is-clinician>
+          My Account
+        </div> -->
         <div class = "center-card">
           <h2>Hey <span id = "name">name</span>
             <br />
@@ -64,7 +67,7 @@
               Resume Session
             </div>
           </div>
-          <div is-in-session is-clinician class = "btn" onclick = "app.removeCurrentSession()">
+          <div is-in-session-owner class = "btn" onclick = "app.removeCurrentSession()">
             End Session
           </div>
         </div>
@@ -160,6 +163,11 @@
               <div class = "btn top-left" onclick = "app.leaveSession()">
                 Home
               </div>
+              <div class = "top-middle" is-patient-calibrating>
+                <p>
+                  Patient is Calibrating
+                </p>
+              </div>
               <div is-clinician-session onclick = "app.nextPDFPage()" class = "btn bottom-right">
                 &#62;
               </div>
@@ -178,11 +186,12 @@
                   <div class = "center-card">
                     <h2>
                       Focus on the purple dots<br />
-                      to calibrate eye tracking.
+                      to calibrate eye tracking.<br />
                     </h2>
                     <div name = "run" class = "btn">
                       Start Calibration
                     </div>
+                    <i >Note: Make sure the edges and centre of the screen are unobstructed.</i>
                   </div>
                 </div>
               </calibration-window>

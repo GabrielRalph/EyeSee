@@ -40,7 +40,21 @@ eye-see-app:not([creator]) *[is-clinician] {
   display: none;
 }
 
-eye-see-app:not([in-session]) *[is-in-session] {
+eye-see-app[request-pending] *[no-request-pending] {
+  display: none;
+}
+eye-see-app:not([request-pending]) *[is-request-pending] {
+  display: none;
+}
+
+eye-see-app:not([patient-calibrating]) *[is-patient-calibrating] {
+  display: none;
+}
+
+eye-see-app:not([in-session], [in-session-owner]) *[is-in-session] {
+  display: none;
+}
+eye-see-app:not([in-session-owner]) *[is-in-session-owner] {
   display: none;
 }
 eye-see-app:not([patient-session]) *[is-patient-session] {
@@ -97,17 +111,17 @@ input.plain {
   margin: 0.5em;
   cursor: pointer;
 }
-.top-left, .top-right, .bottom-left, .bottom-right, .bottom-middle {
+.top-left, .top-right, .bottom-left, .bottom-right, .bottom-middle, .top-middle {
   position: absolute;
 }
 .top-left, .bottom-left {
   left: 0;
 }
-.top-right, .bottom-right, .top-middle{
+.top-right, .bottom-right{
   text-align: right;
   right: 0;
 }
-.top-right, .top-left {
+.top-right, .top-left, .top-middle {
   top: 0;
 }
 .bottom-left, .bottom-right, .bottom-middle{
@@ -116,6 +130,7 @@ input.plain {
 .bottom-middle, .top-middle {
   left: 50%;
   transform: translate(-50%, 0);
+  text-align: center;
 }
 
 .center-card {

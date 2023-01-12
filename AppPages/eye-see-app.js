@@ -1,7 +1,6 @@
 import {SvgPlus, Vector} from "../SvgPlus/4.js"
 import {} from "../Icons/paste-icon.js"
-import {sendRequest, addAuthChangeListener, login, logout, createSession, isCreator, removeCurrentSession} from "../Database/database-functions.js"
-import {addUpdateHandler, broadcast, joinSession} from "../Database/session.js";
+import {addUpdateHandler, broadcast, joinSession, sendRequest, addAuthChangeListener, login, logout, createSession, isOwner, isCreator, removeCurrentSession} from "../Database/database-functions.js"
 window.closestInputValue = function (node) {
   let input = null;
   while (!input && node) {
@@ -18,8 +17,10 @@ window.closestInputValue = function (node) {
 class EyeSeeApp extends SvgPlus{
   constructor(el) {
     super(el);
+    this._page = "loader";
     const handlers = {
       pdf: (value) => {
+        console.log(value);
         let {pdfViewer} = this;
         if (pdfViewer && value) {
           if (pdfViewer.url != value.url) {
@@ -31,28 +32,55 @@ class EyeSeeApp extends SvgPlus{
         }
       },
       eyes: (value) => {
-        // if (size.x != 0 && size.y != 0) {
-          for (let key in value) {
-            let eyes = value[key].eyes;
-            let pos = this.toScreen(eyes);
+        console.log("eyes");
+        this.toggleAttribute("patient-calibrating", false);
+        for (let key in value) {
+          let eyes = value[key].eyes;
+          if (eyes === "calibrating") {
+            this.toggleAttribute("patient-calibrating", true);
+          } else {
+            let pos = this.toScreen(new Vector(eyes));
             if (pos) {
               this.cursors.setCursorPosition(pos, key, "blob")
             }
           }
-        },
-        mouse: (value) => {
-          let pos = this.toScreen(new Vector(value));
-          console.log(pos);
-          if (pos) {
-            this.cursors.setCursorPosition(pos, "mouse", "default");
+        }
+      },
+      mouse: (value) => {
+        let pos = this.toScreen(new Vector(value));
+        console.log(pos);
+        if (pos) {
+          this.cursors.setCursorPosition(pos, "mouse", "default");
+        }
+      },
+      user: async (data) => {
+        this.toggleAttribute("creator", false);
+        this.toggleAttribute("request-pending", false);
+        this.toggleAttribute("in-session-owner", false);
+        this.toggleAttribute("in-session", false);
+        if (data) {
+          let {info, creator} = data;
+          console.log(creator);
+          this.toggleAttribute("creator", !!creator);
+          this.isOwner = false;
+          if (info) {
+            this.toggleAttribute("request-pending", typeof info["first-name"] === "string" && !creator);
+            let sid = info["current-session"];
+            if (sid) {
+              let owner = await isOwner(sid);
+              this.toggleAttribute("in-session-owner", owner);
+              this.toggleAttribute("in-session", !owner);
+              this.usersCurrentSession = sid;
+              this.isOwner = owner;
+            }
           }
         }
-      // }
+        if (this.page == "loader") this.page = "home"
+      }
     }
     addUpdateHandler((type, value) => {
       if (type in handlers) handlers[type](value);
-
-    })
+    });
   }
 
   onconnect(){
@@ -70,11 +98,15 @@ class EyeSeeApp extends SvgPlus{
     this.eyeTracker.addEventListener("prediction", (e) => {
       let pred = e.position;
       // console.log(pred);
-      if (this.calibrator.calibrating) {pred = null;}
+      let eyePosRel = null;
+      let {calibrating} = this.calibrator;
+      if (calibrating) {
+        pred = null;
+        eyePosRel = "calibrating"
+      } else {
+        eyePosRel = this.toRel(pred);
+      }
       this.cursors.setCursorPosition(pred, "eye-position", "blob");
-
-
-      let eyePosRel = this.toRel(pred);
       broadcast.eye(eyePosRel);
     })
 
@@ -110,21 +142,13 @@ class EyeSeeApp extends SvgPlus{
   }
 
   async onauthchange(user) {
-    if (user && user.uid !== this.lastuid) {
-      let currentSession = user.info ? user.info["current-session"] : null;
-      console.log(!!currentSession);
-      this.toggleAttribute("in-session", !!currentSession);
-      this.usersCurrentSession = currentSession;
-
-      this.lastuid = user.uid;
-      let creator = await isCreator();
-      this.isCreator = creator;
-      this.toggleAttribute("creator", creator)
+    if (user) {
       let name = document.getElementById("name");
       name.innerHTML = user.displayName;
-      this.page = "home";
+      this.lastuid = user.uid;
     } else {
       this.page = "sign-in";
+      this.lastuid = null;
     }
   }
 
@@ -185,9 +209,8 @@ class EyeSeeApp extends SvgPlus{
   }
 
   async resumeSession(){
-    console.log(this.usersCurrentSession);
     if (this.usersCurrentSession) {
-      await this.joinSession(this.usersCurrentSession, !this.isCreator);
+      await this.joinSession(this.usersCurrentSession, !this.isOwner);
     }
   }
 
@@ -219,6 +242,7 @@ class EyeSeeApp extends SvgPlus{
   async startEyeTracker(){
     let {eyeTracker, calibrator} = this;
     if (eyeTracker && calibrator) {
+      calibrator.show();
       let eyetracking = await eyeTracker.start();
       this.eyeTracking.style["pointer-events"] = "all";
       if (eyetracking) {
@@ -265,7 +289,9 @@ class EyeSeeApp extends SvgPlus{
       for (let input of inputs) input.value = "";
       child.toggleAttribute("shown", child.getAttribute("name") == name)
     }
+    this._page = name;
   }
+  get page(){return this._page;}
 }
 
 SvgPlus.defineHTMLElement(EyeSeeApp);

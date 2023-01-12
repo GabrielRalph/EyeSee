@@ -1,8 +1,19 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/9.2.0/firebase-app.js'
 import {getAuth, signInWithRedirect, GoogleAuthProvider, onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/9.2.0/firebase-auth.js'
-import {getDatabase, child, push, ref, update, get, onValue, onChildAdded, onChildChanged, onChildRemoved, set, off} from 'https://www.gstatic.com/firebasejs/9.2.0/firebase-database.js'
+import {getDatabase, child, push, ref, get, onValue, onChildAdded, onChildChanged, onChildRemoved, set, off} from 'https://www.gstatic.com/firebasejs/9.2.0/firebase-database.js'
 import {uploadFileToCloud} from "./fileupload.js"
 
+let UpdateHandlers = [];
+function update(type, value) {
+  for (let callback of UpdateHandlers) {
+    callback(type, value);
+  }
+}
+export function addUpdateHandler (callback) {
+  if (callback instanceof Function) {
+    UpdateHandlers.push(callback);
+  }
+}
 
 const firebaseConfig = {
   apiKey: "AIzaSyChiEAP1Rp1BDNFn7BQ8d0oGR65N3rXQkE",
@@ -45,9 +56,7 @@ export function initializeFirebase(config = firebaseConfig) {
     if (userData == null) {
       authChange(userData);
     } else {
-
       if (!(User != null && User.uid === userData.uid)) {
-
         authChange(userData);
       }
     }
@@ -56,10 +65,7 @@ export function initializeFirebase(config = firebaseConfig) {
 
 async function authChange(user){
   User = user;
-  if (user != null) {
-    let info = await getUserData("info");
-    user.info = info;
-  }
+  watchUser();
 
   let newListeners = [];
   for (let obj of StateListeners) {
@@ -77,6 +83,17 @@ async function authChange(user){
 
 export function addAuthChangeListener(obj) {
   StateListeners.push(obj);
+}
+
+let UserDataWatcher = null;
+function watchUser(){
+  if (UserDataWatcher instanceof Function) {
+    UserDataWatcher();
+    UserDataWatcher = null;
+  }
+  UserDataWatcher = onValueUserData(null, (sc) => {
+    update("user", sc.val());
+  });
 }
 
 
@@ -192,7 +209,11 @@ export async function isOwner(sessionID) {
 export async function removeCurrentSession() {
   let session = await getUserData("info/current-session")
   if (session) {
-    await setSession(session, null, null);
+    try{
+      await setSession(session, null, null);
+    } catch (e) {
+      // not owner of session
+    }
     await setUserData("info/current-session", null);
   }
 }
@@ -228,7 +249,6 @@ export async function createSession(file, progressCallback, dummy = true) {
   // upload session content
   try {
     let url = "dummy";
-    console.log(dummy);
     if (!dummy) {
       url = await uploadFileToCloud(file, uid, (info) => {
         let progress = info.bytesTransferred / info.totalBytes;
@@ -256,5 +276,89 @@ export async function sendRequest(info){
     console.log(e);
   }
 }
+
+// --------------------- session
+
+
+let SID = null;
+let IsPatient = true;
+let Detatchers = [];
+export async function joinSession(sessionID, patient){
+  try {
+    // console.log(sessionID);
+    let pdf = await getSession(sessionID, "info/pdf");
+    if (pdf == null) throw "Invalid session key"
+  } catch (e) {
+    console.log(e);
+    throw "Invalid session";
+  }
+
+  let owner = await isOwner(sessionID);
+  SID = sessionID;
+  IsPatient = patient || !owner;
+  for (let detatch of Detatchers) detatch();
+
+  let detatchers = [
+    onValueSession(SID, "info/pdf", (sc) => {
+      update("pdf", sc.val());
+    })
+  ];
+
+  if (IsPatient) {
+    let moused = onValueSession(SID, "info/mouse", (sc) => {
+      update("mouse", sc.val());
+    });
+    detatchers.push(moused);
+  }
+
+  if (!IsPatient) {
+    let patientsd = onValueSession(SID, "patients", (sc) => {
+      update("eyes", sc.val());
+    })
+    detatchers.push(patientsd)
+  }
+
+  setUserData("info/current-session", SID);
+
+  Detatchers = detatchers;
+}
+
+export function leaveSession(){
+  for (let detatcher of Detatchers) detatcher();
+  Detatchers = [];
+}
+
+export const broadcast = {
+   mouse: async function(position) {
+     if (!IsPatient && SID) {
+       try {
+         if (position != null) {
+           let {x, y} = position;
+           position = {x, y}
+         }
+         await setSession(SID, "info/mouse", position);
+       } catch (e) {}
+     }
+   },
+   eye: async function(position) {
+     if (SID) {
+       try {
+         if (position != null && typeof position === "object") {
+           let {x, y} = position;
+           position = {x, y}
+         }
+         await setPatient(SID, "eyes", position);
+       } catch (e) {}
+     }
+   },
+   page: async function(page) {
+     if (!IsPatient && SID) {
+       try {
+         await setSession(SID, "info/pdf/page", page);
+       } catch (e) {}
+     }
+   },
+}
+
 
 initializeFirebase();
