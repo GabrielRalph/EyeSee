@@ -157,14 +157,17 @@ export async function setUserData(path, value) {
 
 export function onValueSession(sessionID, path, value) {
   let sref = sessionRef(sessionID, path);
+  if (sref == null) return null;
   return onValue(sref, value);
 }
 export function onValuePatient(sessionID, path, value) {
   let pref = patientRef(sessionID, path);
+  if (pref == null) return null;
   return onValue(pref, value);
 }
 export function onValueUserData(path, value) {
   let uref = usersRef(path);
+  if (uref == null) return null;
   return onValue(uref, value);
 }
 
