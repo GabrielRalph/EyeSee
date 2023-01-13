@@ -83,6 +83,10 @@ class EyeSeeApp extends SvgPlus{
     });
   }
 
+  ondblclick(){
+    window.location.reload();
+  }
+
   onconnect(){
     window.app = this;
     this.errorMessage = document.querySelector('.error-message');
@@ -251,6 +255,14 @@ class EyeSeeApp extends SvgPlus{
         this.home();
       }
       this.eyeTracking.style["pointer-events"] = "none";
+    }
+  }
+
+  async recalibrate(){
+    let {calibrator} = this;
+    if (calibrator) {
+      calibrator.show();
+      await calibrator.calibrate();
     }
   }
 

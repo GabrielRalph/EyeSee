@@ -163,7 +163,10 @@
               <div class = "btn top-left" onclick = "app.leaveSession()">
                 Home
               </div>
-              <div class = "top-middle" is-patient-calibrating>
+              <div is-patient-session onclick = "app.recalibrate()" class = "btn top-right">
+                Calibrate
+              </div>
+              <div class = "top-middle" is-patient-calibrating is-clinician-session>
                 <p>
                   Patient is Calibrating
                 </p>
@@ -191,7 +194,9 @@
                     <div name = "run" class = "btn">
                       Start Calibration
                     </div>
-                    <i >Note: Make sure the edges and centre of the screen are unobstructed.</i>
+                    <div>
+                      <i >Note: Make sure the edges and centre of the screen are unobstructed.</i>
+                    </div>
                   </div>
                 </div>
               </calibration-window>

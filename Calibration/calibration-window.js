@@ -71,15 +71,17 @@ class CalibrationWindow extends SvgPlus {
     if (!this.eyeTracker) {
       this.eyeTracker = document.querySelector("eye-tracker-window");
     }
+    if (FaceTracker) {
+      console.log(FaceTracker);
+      FaceTracker.clear();
+    }
     this.styles = {opacity: 1};
 
     await this.waitForClick();
 
     this.message.style.setProperty("pointer-events", "none");
     this.styles = {cursor: "none"}
-    console.log('fade out');
     await this.fade(300, false, "message");
-    console.log('faded');
 
     let points = this.points;
     for (let point of points) {
@@ -110,17 +112,17 @@ class CalibrationWindow extends SvgPlus {
     return this._calibrating;
   }
 
-  async triggerAt(point, triggers = 1, samples = 5) {
+  async triggerAt(point, triggers = 3, samples = 3, sampletime = 1000) {
     let {pointer} = this;
     let [pos] = this.bbox;
-    pointer.innerHTML = triggers > 1 ? 1 : "";
+    pointer.innerHTML = triggers > 1 ? 3 : "";
     this.pos = point;
     await this.fade(500, true, "pointer");
     await delay(500);
     this._point = point.add(pos);
     for (let t = 0; t < triggers; t++) {
-      pointer.innerHTML = triggers > 1 ? t + 1 : "";
-      let dtime = 1000 / (samples + 1);
+      pointer.innerHTML = triggers > 1 ? (3 - t) : "";
+      let dtime = sampletime / (samples + 1);
       await delay(dtime);
       for (let s = 0; s < samples; s++) {
         this.addCalibrationPoint();
