@@ -7,6 +7,7 @@ class Cursor extends SvgPlus {
     this.position = null;
     this.maxOpacity = 0.8;
     this.opacityIncrement = 0.1;
+    this.opacityThreshold = 0;
     this.delta = 0;
     this.lambda = 0.97;
   }
@@ -47,7 +48,7 @@ class Cursor extends SvgPlus {
     }
     this.delta = this.delta * lambda + (1 - lambda) * delta;
     delta = this.delta;
-    if (position == null || delta < 0.1) {
+    if (position == null || delta < this.opacityThreshold) {
       this.opacity -= this.opacityIncrement;
       // console.log('y');
     } else {
@@ -87,7 +88,7 @@ class BlobCursor extends Cursor {
       class: "cursor",
       viewBox: "-100 -100 200 200"
     }
-
+    this.opacityThreshold = 0.1;
     // svg filter to create merged blobs
     this.innerHTML = `
     <filter id="filter" x="-20%" y="-20%" width="140%" height="140%" filterUnits="objectBoundingBox" primitiveUnits="userSpaceOnUse" color-interpolation-filters="linearRGB">
