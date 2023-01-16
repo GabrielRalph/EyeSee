@@ -225,7 +225,7 @@ class EyeSeeApp extends SvgPlus{
       await joinSession(key, isPatient);
       this.sessionKey = key;
       this.usersCurrentSession = key;
-      this.toggleAttribute("patient-session", isPatient);
+      this.toggleAttribute("patient-session", !!isPatient);
       this.toggleAttribute("clinician-session", !isPatient);
     } catch (e) {
       this.page = "join-session-error"
@@ -236,7 +236,6 @@ class EyeSeeApp extends SvgPlus{
     console.log("waiting done for pdf");
     this.page = "session"
 
-    console.log(isPatient);
     this.eyeTracking.toggleAttribute("hidden", !isPatient);
     if (isPatient) {
       await this.startEyeTracker();
