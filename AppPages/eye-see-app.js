@@ -1,6 +1,9 @@
 import {SvgPlus, Vector} from "../SvgPlus/4.js"
 import {} from "../Icons/paste-icon.js"
+
+import {startWebcam, stopWebcam, startPredictions, stopPredictions, addPredictionListener, addCalibrationPoint, clearCalibration} from "../EyeTracker2/eye-tracker.js"
 import {addUpdateHandler, broadcast, joinSession, sendRequest, addAuthChangeListener, login, logout, createSession, isOwner, isCreator, removeCurrentSession} from "../Database/database-functions.js"
+
 window.closestInputValue = function (node) {
   let input = null;
   while (!input && node) {
@@ -13,14 +16,39 @@ window.closestInputValue = function (node) {
 }
 
 
+async function parallel() {
+  let res = [];
+  for (let argument of arguments) {
+    res.push(await argument);
+  }
+  return res;
+}
+function delay(t) {
+  return new Promise(function(resolve, reject) {
+    setTimeout(resolve, t);
+  });
+}
+function getQueryKey(string) {
+  let key = null;
+  try {
+
+    console.log(string);
+    let match = string.match(/[ !"%&'()*+\,\-\/0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\^_`abcdefghijklmnopqrstuvwxyz{|}]{20}$/);
+    if (match) {
+      key = match[0];
+    }
+  } catch(e){}
+  return key;
+}
+
 
 class EyeSeeApp extends SvgPlus{
   constructor(el) {
     super(el);
-    this._page = "loader";
+    this.page = "loader";
+
     const handlers = {
       pdf: (value) => {
-        console.log(value);
         let {pdfViewer} = this;
         if (pdfViewer && value) {
           if (pdfViewer.url != value.url) {
@@ -32,7 +60,6 @@ class EyeSeeApp extends SvgPlus{
         }
       },
       eyes: (value) => {
-        console.log("eyes");
         this.toggleAttribute("patient-calibrating", false);
         for (let key in value) {
           let eyes = value[key].eyes;
@@ -48,32 +75,30 @@ class EyeSeeApp extends SvgPlus{
       },
       mouse: (value) => {
         let pos = this.toScreen(new Vector(value));
-        console.log(pos);
         if (pos) {
           this.cursors.setCursorPosition(pos, "mouse", "default");
         }
       },
       user: async (data) => {
-        this.toggleAttribute("creator", false);
-        this.toggleAttribute("request-pending", false);
-        this.toggleAttribute("in-session-owner", false);
-        this.toggleAttribute("in-session", false);
+        // console.log("user info", data);
+        this.toggleAttribute("user", "new-user");
+        this.toggleAttribute("hosting-session", false);
         if (data) {
           let {info, creator} = data;
-          console.log(creator);
-          this.toggleAttribute("creator", !!creator);
-          this.isOwner = false;
-          if (info) {
-            this.toggleAttribute("request-pending", typeof info["first-name"] === "string" && !creator);
-            let sid = info["current-session"];
-            if (sid) {
-              let owner = await isOwner(sid);
-              this.toggleAttribute("in-session-owner", owner);
-              this.toggleAttribute("in-session", !owner);
-              this.usersCurrentSession = sid;
-              this.isOwner = owner;
+          creator = !!creator;
+          let userinfo = info && typeof info["first-name"] === "string";
+          this.setAttribute("user", creator ? "creator" : (userinfo ? "requesting" : "new-user"));
+            if (info) {
+              let sid = info["current-session"];
+              if (sid) {
+                let owner = await isOwner(sid);
+                this.toggleAttribute("hosting-session", owner);
+                console.log("hosting session", sid);
+                this.hostedSession = sid;
+                this.isOwner = owner;
+              }
             }
-          }
+          this.isOwner = false;
         }
         if (this.page == "loader") this.page = "home"
       }
@@ -81,27 +106,10 @@ class EyeSeeApp extends SvgPlus{
     addUpdateHandler((type, value) => {
       if (type in handlers) handlers[type](value);
     });
-  }
+    addPredictionListener((e) => {
+      let pred = e.prediction;
+      if (pred != null) pred = new Vector(pred);
 
-  ondblclick(){
-    window.location.reload();
-  }
-
-  onconnect(){
-    window.app = this;
-    this.errorMessage = document.querySelector('.error-message');
-    this.progressLoader = document.querySelector('progress-loader');
-
-    this.pdfViewer = document.querySelector("pdf-viewer");
-    this.eyeTracker = document.querySelector("eye-tracker-window");
-    this.calibrator = document.querySelector("calibration-window");
-    this.cursors = document.querySelector("cursor-group");
-    this.eyeTracking = document.querySelector("[name = 'eye-tracking']");
-    this.keyDisplay = document.querySelector("[name = 'key-display']");
-
-    this.eyeTracker.addEventListener("prediction", (e) => {
-      let pred = e.position;
-      // console.log(pred);
       let eyePosRel = null;
       let {calibrating} = this.calibrator;
       if (calibrating) {
@@ -113,15 +121,48 @@ class EyeSeeApp extends SvgPlus{
       this.cursors.setCursorPosition(pred, "eye-position", "blob");
       broadcast.eye(eyePosRel);
     })
+    addAuthChangeListener(this);
+  }
 
+  async onconnect(){
+    window.app = this;
+    this.errorMessage = document.querySelector('.error-message');
+    this.progressLoader = document.querySelector('progress-loader');
+
+    this.pdfViewer = document.querySelector("pdf-viewer");
+    this.calibrator = document.querySelector("calibration-window");
+    this.cursors = document.querySelector("cursor-group");
+    this.webcamIcon = document.querySelector("[name = 'webcam-icon']");
+    this.requestError = this.querySelector("[name = 'request-error']");
+
+    this.calibrator.addEventListener("point", (e) => {
+      addCalibrationPoint(e.point.x, e.point.y);
+    })
     this.pdfViewer.onmousemove = (e) => {
       let mousePosRel = this.toRel(new Vector(e));
       broadcast.mouse(mousePosRel);
     }
 
-    this.calibrator.eyeTracker = this.eyeTracker;
+    await this.waitForLoad
+    let key = getQueryKey(window.location.search);
+    if (key != null) {
+      this.joinSession(key, false);
+    }
+  }
 
-    addAuthChangeListener(this)
+
+
+  async webcamIconPulse(){
+    console.log(this.webcamIcon);
+    let fade = async (inout) => {
+      await this.waveTransition((o) => {
+        this.webcamIcon.style.setProperty("opacity", o);
+      }, 400, inout);
+    }
+    for (let i = 0; i < 2; i++) {
+      await fade(false);
+      await fade(true);
+    }
   }
 
   toScreen(rel) {
@@ -146,13 +187,14 @@ class EyeSeeApp extends SvgPlus{
   }
 
   async onauthchange(user) {
+    this.toggleAttribute("user", false);
+    let name = document.getElementById("name");
     if (user) {
-      let name = document.getElementById("name");
       name.innerHTML = user.displayName;
       this.lastuid = user.uid;
+      this.setAttribute("user", "new-user")
     } else {
-      this.page = "sign-in";
-      this.lastuid = null;
+      this.page = "home";
     }
   }
 
@@ -181,7 +223,6 @@ class EyeSeeApp extends SvgPlus{
     });
   }
 
-
   set error(value){
     this.errorMessage.innerHTML = value;
     this.page = "error";
@@ -199,7 +240,7 @@ class EyeSeeApp extends SvgPlus{
     this.progress = 0;
     try {
       sessionKey = await createSession(pdf, (p) => {this.progress = p * 0.99}, false);
-      this.joinSession(sessionKey);
+      await this.joinSession(sessionKey, true);
     } catch (e) {
       console.log("errrror");
       this.error = e;
@@ -208,26 +249,29 @@ class EyeSeeApp extends SvgPlus{
   }
 
   leaveSession(){
-    this.eyeTracker.stop();
+    stopPredictions();
+    stopWebcam();
     this.home();
   }
 
   async resumeSession(){
-    if (this.usersCurrentSession) {
-      await this.joinSession(this.usersCurrentSession, !this.isOwner);
+    if (this.hostedSession) {
+      await this.joinSession(this.hostedSession, !this.isOwner);
     }
   }
 
-  async joinSession(key, isPatient){
+  async joinSession(key, isCreator = false){
+    console.log(isCreator);
+    key = getQueryKey(key);
     this.page = "loader";
     this.pdfViewer.url = null;
     try {
-      await joinSession(key, isPatient);
+      await joinSession(key, isCreator);
       this.sessionKey = key;
-      this.usersCurrentSession = key;
-      this.toggleAttribute("patient-session", !!isPatient);
-      this.toggleAttribute("clinician-session", !isPatient);
+      this.hostedSession = key;
+      this.toggleAttribute("session-host", isCreator);
     } catch (e) {
+      console.log(e);
       this.page = "join-session-error"
       return;
     }
@@ -236,39 +280,52 @@ class EyeSeeApp extends SvgPlus{
     console.log("waiting done for pdf");
     this.page = "session"
 
-    this.eyeTracking.toggleAttribute("hidden", !isPatient);
-    if (isPatient) {
+    if (!isCreator) {
       await this.startEyeTracker();
     }
   }
 
   async startEyeTracker(){
-    let {eyeTracker, calibrator} = this;
-    if (eyeTracker && calibrator) {
-      calibrator.show();
-      let eyetracking = await eyeTracker.start();
-      this.eyeTracking.style["pointer-events"] = "all";
-      if (eyetracking) {
-        await calibrator.calibrate();
-      } else {
-        this.home();
-      }
-      this.eyeTracking.style["pointer-events"] = "none";
+    this.page = "start-eye-tracking"
+    this.toggleAttribute("calibrated", false);
+
+    let [webcamOn] = await parallel(startWebcam(), this.webcamIconPulse());
+    console.log(webcamOn);
+    if (webcamOn) {
+      startPredictions();
+      await this.calibrate();
+      this.toggleAttribute("calibrated", true);
+    } else {
+      this.page = "eye-tracking-error";
     }
   }
 
-  async recalibrate(){
+  async calibrate(){
     let {calibrator} = this;
-    if (calibrator) {
-      calibrator.show();
+    calibrator.show();
+    clearCalibration();
+    this.page = "calibrator"
+    try {
       await calibrator.calibrate();
+    } catch (e) {
+      console.log(e);
+      this.page = "calibration-error";
     }
+    this.page = "session"
+  }
+
+  endSession(){
+    this.removeCurrentSession();
+    this.page = "home";
   }
 
   removeCurrentSession(){
-    removeCurrentSession();
-    this.sessionKey = null;
-    this.usersCurrentSession = null;
+    try {
+      removeCurrentSession();
+      this.sessionKey = null;
+      this.hostedSession = null;
+    } catch (e) {
+    }
     this.toggleAttribute("in-session", false);
   }
 
@@ -281,16 +338,35 @@ class EyeSeeApp extends SvgPlus{
     broadcast.page(this.pdfViewer.page);
   }
 
+  makeRequest(){
+    this.requestError.innerHTML = "";
+    this.page = "request";
+  }
+
   async sendRequest(){
     let form = this.querySelector(".app-window[name = 'request']");
     let inputs = form.querySelectorAll("input");
     let info = {};
+    let error = false;
     for (let input of inputs) {
+      let value = input.value;
+      value = value.replace(/^\s*/, "");
+      if (!value.match(/^\w+/)) {
+        error = true;
+        break;
+      }
       info[input.getAttribute("name")] = input.value;
     }
-    await sendRequest(info);
-    this.home()
+
+    if (error) {
+      this.requestError.innerHTML = "Please enter values for all fields"
+    } else {
+      await sendRequest(info);
+      this.home()
+    }
   }
+
+
 
   home(){this.page = 'home';}
 
@@ -299,6 +375,16 @@ class EyeSeeApp extends SvgPlus{
       let inputs = child.querySelectorAll("input");
       for (let input of inputs) input.value = "";
       child.toggleAttribute("shown", child.getAttribute("name") == name)
+    }
+    console.log(name);
+    if (name == "loader") {
+      this.waitForLoad = new Promise((resolve, reject) => {
+        this._endLoad = () => resolve();
+      })
+    } else {
+      this._endLoad();
+      this._endLoad = () => {}
+      this.waitForLoad = async () => {}
     }
     this._page = name;
   }

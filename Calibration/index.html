@@ -5,15 +5,14 @@
     <title></title>
     <link href =  "./calibration.css" rel="stylesheet"/>
     <link href =  "../AppPages/main.css" rel="stylesheet"/>
-    <script src = "../EyeTracker/face-tracker.js"></script>
     <script type = "module" src = "../Cursor/cursor.js"></script>
-    <script type = "module" src = "./calibration-window.js"></script>
-    <script type = "module" src = "../EyeTracker/eye-tracker-window.js"></script>
+    <!-- <script type = "module" src = "./calibration-window2.js"></script> -->
+    <!-- <script type = "module" src = "../EyeTracker/eye-tracker-window.js"></script> -->
   </head>
   <body>
-    <div class = "session-frame">
-      <div class = "content-frame">
-        <img src = "../Icons/example-01.svg" />
+    <!-- <div class = "session-frame"> -->
+      <!-- <div class = "content-frame"> -->
+        <!-- <img src = "../Icons/example-01.svg" />
         <div class = "overlay">
           <calibration-window>
             <div name = "message">
@@ -26,59 +25,47 @@
                   Start Calibration
                 </div>
               </div>
-            </div>
-          </calibration-window>
-        </div>
-        <div class = "overlay">
-          <eye-tracker-window>
-            <div name = "message">
-              <div class = "center-card">
-                <h1>Starting Eye Tracker</h1>
-                <div class = "row">
-                  <div class = "pointer" style = "--p-size: 3.5vmin; --p-color: #f01c1c; position: relative; transform: none">
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div name = "error">
-              <div class = "center-card">
-                <h2>Eye See was unable to access your web camera.</h2>
-                <p>Check your webcam privacy settings or disable other applications that are using your webcam and try again.</p>
-                  <div name = "try-again" class = "btn">
-                    Try Again
-                  </div>
-                  <br />
-                  <div name = "home" onclick = "app.home()" class = "btn">
-                    Home
-                  </div>
-              </div>
-            </div>
-          </eye-tracker-window>
-        </div>
+            </div> -->
+          <!-- </calibration-window> -->
+        <!-- </div> -->
         <cursor-group></cursor-group>
-      </div>
+      <!-- </div> -->
     </div>
 
   </body>
 
   <script type = "module">
-    let eyetrack = document.querySelector("eye-tracker-window");
-    let calib = document.querySelector("calibration-window");
+    import {startWebcam, stopWebcam, startPredictions, stopPredictions, addPredictionListener} from "../EyeTracker2/eye-tracker.js"
     let cursors = document.querySelector("cursor-group");
+    const csize = 10;
 
-    eyetrack.addEventListener("prediction", (e) => {
+    function calibPos(time, start, end) {
+      time = time / 1000;
+
+      let y = time / 100;
+      let x = (Math.cos(time) +1)/2
+      let pos = start.mul(new Vector(x, y).add(end.mul(new Vector(1 - x, 1 - y)))
+    }
+
+    console.log(cursors);
+    let clibrating = null;
+    addPredictionListener((e) => {
       let pred = e.position;
-      if (calib.calibrating) {pred = null;}
-
       console.log("pred: " + pred);
-      cursors.setCursorPosition(pred, "eye-position", "blob");
+      cursors.setCursorPosition(pred, "eye", "blob");
+
+      let {innerWidth, innerHeight} = window;
+      let start = new Vector(csize/2, csize/2);
+      let end = new Vector(innerWidth - csize, innerHeight - csize);
+
+
+      console.log(innerWidth, innerWidth);
     })
-    calib.eyeTracker = eyetrack;
 
     async function startEyeTracking(){
-      await eyetrack.start();
-      await calib.calibrate();
+      if (await startWebcam()) {
+        await startPredictions()
+      }
     }
 
     window.ondblclick = () => {

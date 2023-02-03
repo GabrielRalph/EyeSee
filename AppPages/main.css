@@ -2,6 +2,13 @@
   --theme: #8458c3;
   font-family: 'Roboto Mono', monospace;
 }
+.row {
+  display: flex;
+}
+
+.f-table tr td:first-child {
+  text-align: right;
+}
 
 eye-see-app {
   width: 100%;
@@ -31,7 +38,7 @@ pdf-viewer > canvas {
   max-height: 100%;
 }
 
-eye-see-app > *:not(div[shown]) {
+eye-see-app > *:not([shown]) {
   display: none;
 }
 
@@ -50,21 +57,32 @@ eye-see-app:not([patient-calibrating]) *[is-patient-calibrating] {
   display: none;
 }
 
-eye-see-app:not([in-session], [in-session-owner]) *[is-in-session] {
+eye-see-app:not([in-session], [in-session-owner]) *[is-in-session] {display: none;}
+eye-see-app:not([hosting-session]) *[is-hosting-session] {display: none;}
+eye-see-app:not([session-host]) *[is-host-session] {display: none;}
+eye-see-app[session-host] *[is-entrant-session] {display: none;}
+eye-see-app:not([session-host]) .pdf-controls {
   display: none;
 }
+
+eye-see-app[hosting-session] *[is-not-hosting-session] {display: none;}
+eye-see-app:not([calibrated]) *[is-calibrated] {display: none;}
+eye-see-app:not([user="creator"]) *[is-user-creator] {display: none;}
+eye-see-app:not([user="new-user"]) *[is-new-user] {display: none;}
+eye-see-app:not([user="requesting"]) *[is-requesting] {display: none;}
+eye-see-app[user] *[is-no-user] {display: none;}
+eye-see-app:not([user]) *[is-user] {display: none;}
+
+
 eye-see-app:not([in-session-owner]) *[is-in-session-owner] {
   display: none;
 }
-eye-see-app:not([patient-session]) *[is-patient-session] {
+/* eye-see-app:not([patient-session]) *[is-patient-session] {
   display: none;
 }
 eye-see-app:not([clinician-session]) *[is-clinician-session] {
   display: none;
-}
-eye-see-app:not([clinician-session]) .pdf-controls {
-  display: none;
-}
+} */
 
 eye-see-app[creator] *[is-patient] {
   display: none;

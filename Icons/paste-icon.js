@@ -15,7 +15,7 @@ class PasteIcon extends SvgPlus {
 
   }
 
-  async showText(value) {
+  async showText(value, textValue = value) {
     if (this.hideText instanceof Function) {
       this.hideText();
     } else {
@@ -25,7 +25,7 @@ class PasteIcon extends SvgPlus {
       let margin = parseFloat(this.getAttribute("margin") | 35);
       svg.innerHTML = "";
       let text = svg.createChild("text", {
-        content: value,
+        content: textValue,
         "font-size": 80,
         x: 0,
         y: 80,
@@ -81,8 +81,13 @@ class PasteIcon extends SvgPlus {
 
   onclick(){
     let value = this.getAttribute("value");
-    let text = Function("", `"use strict";return (${value});`)();
-    this.showText(text);
+    let text = this.getAttribute("text");
+    if (!text) text = value;
+
+    value = Function("", `"use strict";return (${value});`)();
+    text = Function("", `"use strict";return (${text});`)();
+
+    this.showText(value, text);
   }
 
 }

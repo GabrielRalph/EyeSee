@@ -3,6 +3,16 @@ import {getAuth, signInWithRedirect, GoogleAuthProvider, onAuthStateChanged} fro
 import {getDatabase, child, push, ref, get, onValue, onChildAdded, onChildChanged, onChildRemoved, set, off} from 'https://www.gstatic.com/firebasejs/9.2.0/firebase-database.js'
 import {uploadFileToCloud} from "./fileupload.js"
 
+function delay(t) {
+  return new Promise(function(resolve, reject) {
+    setTimeout(resolve, t);
+  });
+}
+function makeRandomKey(){
+  return  (Math.round(Math.random() * 100000)).toString(32) + Math.round(performance.now() * 1000).toString(32) + (Math.round(Math.random() * 100000)).toString(32);
+}
+
+
 let UpdateHandlers = [];
 function update(type, value) {
   for (let callback of UpdateHandlers) {
@@ -28,6 +38,13 @@ let App = null;
 let Database = null;
 let Auth = null;
 let User = null;
+let DUID = localStorage.getItem('duid');
+if (DUID == null) {
+  DUID = makeRandomKey();
+  localStorage.setItem('duid', DUID);
+}
+console.log("duid", DUID);
+
 let StateListeners = [];
 
 // Simple getters
@@ -36,7 +53,7 @@ export function getUser(){
 }
 
 export function getUID(){
-  let uid = null
+  let uid = DUID;
   if (User != null) {
     uid = User.uid;
   }
@@ -53,18 +70,14 @@ export function initializeFirebase(config = firebaseConfig) {
   Auth = getAuth();
   onAuthStateChanged(Auth, async (userData) => {
     console.log("auth state change: user data", userData);
-    if (userData == null) {
-      authChange(userData);
-    } else {
-      if (!(User != null && User.uid === userData.uid)) {
+      if (!(userData != null && User != null && User.uid === userData.uid))
         authChange(userData);
-      }
-    }
   });
 }
 
 async function authChange(user){
   User = user;
+  // update("user", null);
   watchUser();
 
   let newListeners = [];
@@ -115,11 +128,11 @@ export function usersRef(path) {
   }
   return uref;
 }
-export function patientRef(sessionID, path) {
+export function entrantRef(sessionID, path) {
   let pref = null;
   let uid = getUID();
   if (uid != null) {
-    pref = child(sessionRef(sessionID, "patients"), uid);
+    pref = child(sessionRef(sessionID, "entrants"), uid);
     if (typeof path === "string") pref = child(pref, path);
   }
   return pref;
@@ -130,29 +143,35 @@ export async function getSession(sessionID, path) {
   let sc = await get(sref);
   return sc.val();
 }
-export async function getPatient(sessionID, path) {
-  let pref = patientRef(sessionID, path);
+export async function getEntrant(sessionID, path) {
+  let pref = entrantRef(sessionID, path);
   let sc = await get(pref);
   return sc.val();
 }
 export async function getUserData(path) {
   let uref = usersRef(path);
-  console.log(uref);
-  let sc = await get(uref);
-  return sc.val();
+  let value = null
+  try {
+    let sc = await get(uref);
+    value = sc.val();
+  } catch (e) {}
+  return value;
 }
 
 export async function setSession(sessionID, path, value) {
   let sref = sessionRef(sessionID, path);
   await set(sref, value);
 }
-export async function setPatient(sessionID, path, value) {
-  let pref = patientRef(sessionID, path);
+export async function setEntrant(sessionID, path, value) {
+  let pref = entrantRef(sessionID, path);
   await set(pref, value);
 }
 export async function setUserData(path, value) {
   let uref = usersRef(path);
-  await set(uref, value);
+  try {
+    await set(uref, value);
+  } catch (e) {
+  }
 }
 
 export function onValueSession(sessionID, path, value) {
@@ -160,8 +179,8 @@ export function onValueSession(sessionID, path, value) {
   if (sref == null) return null;
   return onValue(sref, value);
 }
-export function onValuePatient(sessionID, path, value) {
-  let pref = patientRef(sessionID, path);
+export function onValueEntrant(sessionID, path, value) {
+  let pref = entrantRef(sessionID, path);
   if (pref == null) return null;
   return onValue(pref, value);
 }
@@ -208,7 +227,6 @@ export async function isOwner(sessionID) {
   return res;
 }
 
-
 export async function removeCurrentSession() {
   let session = await getUserData("info/current-session")
   if (session) {
@@ -224,10 +242,7 @@ export async function removeCurrentSession() {
 //
 
 export async function createSession(file, progressCallback, dummy = true) {
-  if (User == null) {
-    throw 'No user was found.';
-  }
-  let uid = User.uid;
+  let uid = getUID();
   let sessionKey = getNewSessionKey();
 
   // remove old session
@@ -284,21 +299,28 @@ export async function sendRequest(info){
 
 
 let SID = null;
-let IsPatient = true;
+let IsCreator = null;
 let Detatchers = [];
-export async function joinSession(sessionID, patient){
+export async function joinSession(sessionID, isCreator = false){
+  let owner = await isOwner(sessionID);
+
+  if (owner === isCreator) {
+    IsCreator = isCreator;
+  } else if (isCreator == true && owner == false) {
+    throw 'You do not have host privileges'
+  }
+
+
   try {
-    // console.log(sessionID);
     let pdf = await getSession(sessionID, "info/pdf");
+    console.log(pdf);
     if (pdf == null) throw "Invalid session key"
   } catch (e) {
     console.log(e);
-    throw "Invalid session";
+    throw "Invalid session key";
   }
 
-  let owner = await isOwner(sessionID);
   SID = sessionID;
-  IsPatient = patient || !owner;
   for (let detatch of Detatchers) detatch();
 
   let detatchers = [
@@ -307,21 +329,23 @@ export async function joinSession(sessionID, patient){
     })
   ];
 
-  if (IsPatient) {
+  if (IsCreator) {
+    let entrantsd = onValueSession(SID, "entrants", (sc) => {
+      update("eyes", sc.val());
+    })
+    detatchers.push(entrantsd)
+  } else {
     let moused = onValueSession(SID, "info/mouse", (sc) => {
       update("mouse", sc.val());
     });
     detatchers.push(moused);
   }
 
-  if (!IsPatient) {
-    let patientsd = onValueSession(SID, "patients", (sc) => {
-      update("eyes", sc.val());
-    })
-    detatchers.push(patientsd)
+  try {
+    setUserData("info/current-session", SID);
+  } catch (e) {
+    console.log(e);
   }
-
-  setUserData("info/current-session", SID);
 
   Detatchers = detatchers;
 }
@@ -333,7 +357,7 @@ export function leaveSession(){
 
 export const broadcast = {
    mouse: async function(position) {
-     if (!IsPatient && SID) {
+     if (IsCreator && SID) {
        try {
          if (position != null) {
            let {x, y} = position;
@@ -350,12 +374,12 @@ export const broadcast = {
            let {x, y} = position;
            position = {x, y}
          }
-         await setPatient(SID, "eyes", position);
+         await setEntrant(SID, "eyes", position);
        } catch (e) {}
      }
    },
    page: async function(page) {
-     if (!IsPatient && SID) {
+     if (IsCreator && SID) {
        try {
          await setSession(SID, "info/pdf/page", page);
        } catch (e) {}

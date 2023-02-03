@@ -38,44 +38,62 @@
       </div>
 
       <div class = "app-window" name = "home">
-        <div class = "top-left btn" onclick = "app.signOut()">
-            Sign Out
+        <div is-no-user class = "btn top-right" onclick = "app.signIn()">
+          Host
         </div>
-        <div class = "top-right btn" is-patient no-request-pending onclick = "app.page = 'request'">
-          Request Licence
+
+        <div is-user class = "btn top-right" onclick = "app.signOut()">
+          Sign Out
         </div>
-        <div is-patient is-request-pending class = "top-right btn" style = "opacity: 0.5; cursor: inherit">
-          Request Pending
-        </div>
-        <!-- <div class = "top-right btn" is-clinician>
-          My Account
-        </div> -->
+
         <div class = "center-card">
-          <h2>Hey <span id = "name">name</span>
-            <br />
-            welcome to Eye See</h2>
-          <div>To get started</div>
-          <div class = "btn" onclick = "app.page = 'join-session'">
-            Join Session
-          </div>
-          <div is-clinician>
-            <!-- <div>
-              or
-            </div> -->
-            <div class = "btn" onclick = "app.page = 'create-session'">
-              Create Session
-            </div>
-          </div>
           <div>
-            <div is-in-session class = "btn" onclick = "app.resumeSession()">
-              Resume Session
-            </div>
+            <img width = "50%" src = "./logo.svg" />
+            <h2>Welcome <span id = "name"></span> to EyeSee by Squid</h2>
           </div>
-          <div is-in-session-owner class = "btn" onclick = "app.removeCurrentSession()">
-            End Session
-          </div>
+          <p is-no-user>
+            Here at squid we aim to make <br />remote eye tracking technology accessible for everyone.
+            <br />
+            <br />
+            Get started, enter into a session using the key provided by the host. Alternatively, login as a host to create sessions (approval required).
+         </p>
+         <p is-new-user>
+           You do not have hosting privileges, send a host request to get access.
+         </p>
+         <p is-requesting>
+           Host privileges reqested, awaiting response.
+         </p>
+
+         <div>
+           <div class = "btn" onclick = "app.page = 'join-session'">
+             Enter Session
+           </div>
+         </div>
+
+         <div is-new-user>
+           <div class = "btn" onclick = "app.makeRequest()">
+             Send Host Request
+           </div>
+         </div>
+
+         <div is-user-creator>
+           <div class = "btn" onclick = "app.page = 'create-session'" >
+             <span is-hosting-session>
+               Host New Session
+             </span>
+             <span is-not-hosting-session>
+               Host Session
+             </span>
+           </div>
+           <div is-hosting-session>
+             <div class = "btn" onclick = 'app.resumeSession()'>
+               Resume Session
+             </div>
+           </div>
+         </div>
         </div>
       </div>
+
 
       <div class = "app-window" name = "create-session">
         <div class = "btn top-left" onclick = "app.home()">
@@ -96,7 +114,7 @@
         <div class = "center-card">
           <h2>Enter session key <br /> to join session</h2>
           <div class = "row">
-            <div class = "btn" onclick = "app.joinSession(closestInputValue(this), true)">Join</div><input class = "plain" />
+            <div class = "btn" onclick = "app.joinSession(closestInputValue(this))">Join</div><input class = "plain" />
           </div>
         </div>
       </div>
@@ -147,14 +165,96 @@
           Home
         </div>
         <div class = "center-card">
-          <div>First Name: <input name = "first-name" class = "plain"/></div>
-          <div>Last Name: <input name = "last-name" class = "plain"/></div>
-          <div>Organisation: <input name = "organisation" class = "plain"/></div>
+          <table class = "f-table">
+            <tbody>
+              <tr>
+                <td>
+                  First Name:
+                </td>
+                <td>
+                  <input name = "first-name" class = "plain"/>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Last Name:
+                </td>
+                <td>
+                  <input name = "last-name" class = "plain"/>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Organisation:
+                </td>
+                <td>
+                  <input name = "organisation" class = "plain"/>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p name = "request-error">
+
+          </p>
           <div class = "btn" onclick = "app.sendRequest()">
             Send Request
           </div>
         </div>
       </div>
+
+      <div class = "app-window" name = "start-eye-tracking">
+        <div class = "center-card">
+          <h1>Starting Eye Tracker</h1>
+          <div class = "row">
+            <div name = "webcam-icon" class = "pointer" style = "--p-size: 3.5vmin; --p-color: #f01c1c; position: relative; transform: none">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class = "app-window" name = "eye-tracking-error">
+        <div class = "center-card">
+          <h2>Eye See was unable to access your web camera.</h2>
+          <p>Check your webcam privacy settings or disable other applications that are using your webcam and try again.</p>
+          <div name = "try-again" class = "btn" onclick = "app.startEyeTracker()">
+            Try Again
+          </div>
+          <br />
+          <div name = "home" onclick = "app.home()" class = "btn">
+            Home
+          </div>
+        </div>
+      </div>
+
+      <div class = "app-window" name = "calibration-error">
+        <div class = "center-card">
+          <h2>Calibration failed.</h2>
+          <div name = "try-again" class = "btn" onclick = "app.calibarate()">
+            Try Again
+          </div>
+          <br />
+        </div>
+      </div>
+
+      <calibration-window class = "app-window" name = "calibrator">
+        <div name = "message">
+          <div class = "top-left btn" is-calibrated name = "exit">
+            Exit
+          </div>
+          <div class = "center-card">
+            <h2>
+              Focus on the purple dots<br />
+              to calibrate eye tracking.<br />
+            </h2>
+            <div name = "run" class = "btn">
+              Start Calibration
+            </div>
+            <div>
+              <i >Note: Make sure the edges and centre of the screen are unobstructed.</i>
+            </div>
+          </div>
+        </div>
+      </calibration-window>
 
       <div class = "app-window" name = "session">
         <div class = "session-frame">
@@ -170,68 +270,30 @@
               <div class = "btn top-left" onclick = "app.leaveSession()">
                 Home
               </div>
-              <div is-patient-session onclick = "app.recalibrate()" class = "btn top-middle">
+              <div is-entrant-session onclick = "app.calibrate()" class = "btn top-middle">
                 Calibrate
               </div>
-              <div class = "top-middle" is-patient-calibrating is-clinician-session>
+
+              <div class = "top-middle" is-patient-calibrating is-host-session>
                 <p>
                   Patient is Calibrating
                 </p>
               </div>
-              <div is-clinician-session onclick = "app.nextPDFPage()" class = "btn bottom-right">
+              <div is-host-session onclick = "app.nextPDFPage()" class = "btn bottom-right">
                 &#62;
               </div>
-              <div is-clinician-session onclick = "app.lastPDFPage()"  class = "btn bottom-left">
+              <div is-host-session onclick = "app.lastPDFPage()"  class = "btn bottom-left">
                 &#60;
               </div>
-              <div class = "top-right"  is-clinician-session>
-                <paste-icon value = "app.sessionKey" class = "btn">
+              <div class = "top-right row"  is-host-session>
+                <div class = "btn" onclick = "app.endSession()" style = "margin-right: 0;">
+                  End
+                </div>
+                <paste-icon value = "`${window.location.origin}/?${app.sessionKey}`" text = "app.sessionKey" class = "btn">
                   <svg width = "1em" viewBox="0 0 14.82 12.74"><defs><style>.cls-1,.cls-2{fill:none;stroke:#fff;stroke-linejoin:round;stroke-width:1.5px;}.cls-2{stroke-linecap:round;}</style></defs><circle class="cls-1" cx="10.76" cy="4.06" r="3.31"/><polyline class="cls-2" points="8.42 6.39 4.42 10.4 2.83 11.99 .75 9.91"/><line class="cls-2" x1="4.71" y1="10.11" x2="1.97" y2="7.38"/></svg>
                 </paste-icon>
-              </div>
-            </div>
-            <div name = "eye-tracking">
-              <calibration-window class = "overlay">
-                <div name = "message">
-                  <div class = "center-card">
-                    <h2>
-                      Focus on the purple dots<br />
-                      to calibrate eye tracking.<br />
-                    </h2>
-                    <div name = "run" class = "btn">
-                      Start Calibration
-                    </div>
-                    <div>
-                      <i >Note: Make sure the edges and centre of the screen are unobstructed.</i>
-                    </div>
-                  </div>
-                </div>
-              </calibration-window>
-              <eye-tracker-window class = "overlay">
-                <div name = "message">
-                  <div class = "center-card">
-                    <h1>Starting Eye Tracker</h1>
-                    <div class = "row">
-                      <div class = "pointer" style = "--p-size: 3.5vmin; --p-color: #f01c1c; position: relative; transform: none">
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
-                <div name = "error">
-                  <div class = "center-card">
-                    <h2>Eye See was unable to access your web camera.</h2>
-                    <p>Check your webcam privacy settings or disable other applications that are using your webcam and try again.</p>
-                    <div name = "try-again" class = "btn">
-                      Try Again
-                    </div>
-                    <br />
-                    <div name = "home" onclick = "app.home()" class = "btn">
-                      Home
-                    </div>
-                  </div>
-                </div>
-              </eye-tracker-window>
+              </div>
             </div>
             <cursor-group></cursor-group>
           </div>
