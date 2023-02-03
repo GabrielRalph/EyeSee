@@ -234,6 +234,7 @@ class EyeSeeApp extends SvgPlus{
   }
 
   async createSession(){
+    this.removeCurrentSession();
     let pdf = await this.getPDF();
 
     let sessionKey = null;
