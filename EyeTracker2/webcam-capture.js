@@ -102,20 +102,21 @@ function stopWebcam(){
   } catch(e) {}
 }
 
-let stopCapture = false;
+var stopCapture = false;
 let capturing = false;
 async function startPredictions(){
   if (capturing) return;
   capturing = true;
-  let stop = stopCapture;
-  while (!stop) {
+  while (!stopCapture) {
+    // console.log(stopCapture);
     await parallel(makePrediction(), nextFrame());
   }
-  capturing = stop;
+  capturing = stopCapture;
 }
 
 function stopPredictions() {
-  stopCapture = false;
+  // console.log("stop prediction");
+  stopCapture = true;
 }
 
 function captureFrame(){

@@ -109,7 +109,7 @@ class EyeSeeApp extends SvgPlus{
     addPredictionListener((e) => {
       let pred = e.prediction;
       if (pred != null) pred = new Vector(pred);
-
+      console.log('x');
       let eyePosRel = null;
       let {calibrating} = this.calibrator;
       if (calibrating) {
