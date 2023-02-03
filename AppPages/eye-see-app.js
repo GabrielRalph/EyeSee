@@ -2,7 +2,7 @@ import {SvgPlus, Vector} from "../SvgPlus/4.js"
 import {} from "../Icons/paste-icon.js"
 
 import {startWebcam, stopWebcam, startPredictions, stopPredictions, addPredictionListener, addCalibrationPoint, clearCalibration} from "../EyeTracker2/eye-tracker.js"
-import {addUpdateHandler, broadcast, joinSession, sendRequest, addAuthChangeListener, login, logout, createSession, isOwner, isCreator, removeCurrentSession} from "../Database/database-functions.js"
+import {addUpdateHandler, broadcast, leaveSession, joinSession, sendRequest, addAuthChangeListener, login, logout, createSession, isOwner, isCreator, removeCurrentSession} from "../Database/database-functions.js"
 
 window.closestInputValue = function (node) {
   let input = null;
@@ -251,6 +251,7 @@ class EyeSeeApp extends SvgPlus{
   leaveSession(){
     stopPredictions();
     stopWebcam();
+    leaveSession();
     this.home();
   }
 
