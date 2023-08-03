@@ -2,39 +2,49 @@ let Canvas = document.createElement("canvas");
 let Ctx = Canvas.getContext("2d", {willReadFrequently: true});
 let Video = document.createElement("video");
 Video.setAttribute("autoplay", "true");
+Video.setAttribute("playsinline", "true");
 let Stream = null;
-let Predictor = null;
+let Process = null;
 
-let predictionListeners = [];
-function addPredictionListener(listener) {
+let processListeners = [];
+function addProcessListener(listener) {
   if (listener instanceof Function) {
-    predictionListeners.push(listener);
+    processListeners.push(listener);
   }
 }
 
-function setPredictor(algorithm){
+function setProcess(algorithm){
   if (algorithm instanceof Function) {
-    Predictor = algorithm;
+    Process = algorithm;
   }
 }
 
-async function makePrediction(){
+async function runProcess(){
+  let t0 = window.performance.now();
   captureFrame();
-  let input = {video: Video, canvas: Canvas, context: Ctx}
-  if (Predictor instanceof Function){
+  let t1 = window.performance.now();
+  let input = {video: Video, canvas: Canvas, context: Ctx};
+  input.width = Canvas.width;
+  input.height = Canvas.height;
+  if (Process instanceof Function){
     try {
-      input.prediction = await Predictor(input);
+      input.result = await Process(input);
     } catch (e) {
       input.error = e;
     }
   }
-  for (let listener of predictionListeners) {
+  let pd = window.performance.now();
+  input.times = {start: t0, capture: t1, process: pd}
+
+  for (let listener of processListeners) {
     try {
       listener(input);
     } catch (e) {
       console.log(e);
     }
   }
+
+  return input;
 }
 
 async function parallel() {
@@ -61,7 +71,7 @@ function setUserMediaVariable(){
   }
 
   if (navigator.mediaDevices.getUserMedia === undefined) {
-    navigator.mediaDevices.getUserMedia = function(constraints) {
+    navigator.mediaDevices.getUserMedia = async (constraints) => {
 
       // gets the alternative old getUserMedia is possible
       var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
@@ -72,7 +82,7 @@ function setUserMediaVariable(){
       }
 
       // uses navigator.getUserMedia for older browsers
-      return new Promise(function(resolve, reject) {
+      return new Promise((resolve, reject) => {
         getUserMedia.call(navigator, constraints, resolve, reject);
       });
     }
@@ -80,15 +90,30 @@ function setUserMediaVariable(){
 }
 
 async function startWebcam(params = camParams){
+  if (webcam_on) stopWebcam();
   webcam_on = false;
   try {
     setUserMediaVariable();
+    // Get the users video media stream
     let stream = await navigator.mediaDevices.getUserMedia( params );
+    if (!stream) {
+      webcam_off = false;
+      throw 'no stream'
+    }
     Stream = stream;
     Video.srcObject = stream;
-    webcam_on = true;
+
+    return new Promise((resolve, reject) => {
+      let onload = () => {
+        webcam_on = true;
+        Video.removeEventListener("loadeddata", onload);
+        resolve(true)
+      };
+      Video.addEventListener("loadeddata", onload);
+    });
   } catch (e) {
     console.log(e);
+    webcam_on = false;
   }
   console.log(webcam_on);
   return webcam_on;
@@ -100,23 +125,32 @@ function stopWebcam(){
       track.stop();
     }
   } catch(e) {}
+  stopProcessing();
+  webcam_on = false;
 }
 
 var stopCapture = false;
 let capturing = false;
-async function startPredictions(){
-  if (capturing) return;
+async function startProcessing(){
+  if (capturing) {
+    if (stopCapture) stopCapture = false;
+    return;
+  }
   capturing = true;
   while (!stopCapture) {
     // console.log(stopCapture);
-    await parallel(makePrediction(), nextFrame());
+    await nextFrame();
+    await runProcess();
   }
-  capturing = stopCapture;
+  capturing = false;
+  stopCapture = false;
 }
 
-function stopPredictions() {
-  // console.log("stop prediction");
-  stopCapture = true;
+function stopProcessing() {
+  // console.log("stop process");
+  if (capturing) {
+    stopCapture = true;
+  }
 }
 
 function captureFrame(){
@@ -128,8 +162,15 @@ function captureFrame(){
   Ctx.drawImage(Video, 0, 0, Canvas.width, Canvas.height);
 }
 
-async function waitForReady(){
-
+function copyFrame(destinationCanvas) {
+  destinationCanvas.width = Canvas.width;
+  destinationCanvas.height = Canvas.height;
+  let destCtx = destinationCanvas.getContext('2d');
+  destCtx.drawImage(Canvas, 0, 0);
 }
 
-export {setPredictor, addPredictionListener, startWebcam, stopWebcam, stopPredictions, startPredictions}
+function isOn(){return webcam_on;}
+
+function isPredicting(){return capturing;}
+
+export {isPredicting, isOn, copyFrame, setProcess, addProcessListener, startWebcam, stopWebcam, stopProcessing, startProcessing, runProcess}

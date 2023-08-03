@@ -1,8 +1,9 @@
 import {SvgPlus, Vector} from "../SvgPlus/4.js"
 import {} from "../Icons/paste-icon.js"
+import {parallel, dotGrid, delay} from "../Utilities/usefull-funcs.js"
+import * as DB from "../Database/database-functions.js"
+const {EyeTrackingFrame} = import("../EyeTrackingFrame/eye-tracking-frame.js")
 
-import {startWebcam, stopWebcam, startPredictions, stopPredictions, addPredictionListener, addCalibrationPoint, clearCalibration} from "../EyeTracker2/eye-tracker.js"
-import {addUpdateHandler, broadcast, leaveSession, joinSession, sendRequest, addAuthChangeListener, login, logout, createSession, isOwner, isCreator, removeCurrentSession} from "../Database/database-functions.js"
 
 window.closestInputValue = function (node) {
   let input = null;
@@ -15,19 +16,6 @@ window.closestInputValue = function (node) {
   return input;
 }
 
-
-async function parallel() {
-  let res = [];
-  for (let argument of arguments) {
-    res.push(await argument);
-  }
-  return res;
-}
-function delay(t) {
-  return new Promise(function(resolve, reject) {
-    setTimeout(resolve, t);
-  });
-}
 function getQueryKey(string) {
   let key = null;
   try {
@@ -60,24 +48,36 @@ class EyeSeeApp extends SvgPlus{
         }
       },
       eyes: (value) => {
-        this.toggleAttribute("patient-calibrating", false);
+        let [cpos, size] = this.eyeTracker.bbox;
+
+        // this.toggleAttribute("patient-calibrating", false);
         for (let key in value) {
           let eyes = value[key].eyes;
           if (eyes === "calibrating") {
             this.toggleAttribute("patient-calibrating", true);
           } else {
             let pos = this.toScreen(new Vector(eyes));
-            if (pos) {
-              this.cursors.setCursorPosition(pos, key, "blob")
+            if (pos && cpos) {
+              let crel = pos.sub(cpos).div(size);
+
+              this.eyeTracker.p2.shown = true;
+              this.eyeTracker.p2.position = crel;
             }
           }
         }
       },
       mouse: (value) => {
-        let pos = this.toScreen(new Vector(value));
-        if (pos) {
-          this.cursors.setCursorPosition(pos, "mouse", "default");
-        }
+        try{
+          let pos = this.toScreen(new Vector(value));
+          let [cpos, size] = this.eyeTracker.bbox;
+          if (pos && cpos) {
+            let crel = pos.sub(cpos).div(size);
+            this.eyeTracker.p1.shown = true;
+            this.eyeTracker.p1.position = crel;
+            // pos = pos.div
+            // this.cursors.setCursorPosition(pos, "mouse", "default");
+          }
+        } catch(e){}
       },
       user: async (data) => {
         // console.log("user info", data);
@@ -91,7 +91,7 @@ class EyeSeeApp extends SvgPlus{
             if (info) {
               let sid = info["current-session"];
               if (sid) {
-                let owner = await isOwner(sid);
+                let owner = await DB.isOwner(sid);
                 this.toggleAttribute("hosting-session", owner);
                 console.log("hosting session", sid);
                 this.hostedSession = sid;
@@ -103,44 +103,54 @@ class EyeSeeApp extends SvgPlus{
         if (this.page == "loader") this.page = "home"
       }
     }
-    addUpdateHandler((type, value) => {
+    DB.addUpdateHandler((type, value) => {
       if (type in handlers) handlers[type](value);
     });
-    addPredictionListener((e) => {
-      let pred = e.prediction;
-      if (pred != null) pred = new Vector(pred);
-      console.log('x');
-      let eyePosRel = null;
-      let {calibrating} = this.calibrator;
-      if (calibrating) {
-        pred = null;
-        eyePosRel = "calibrating"
-      } else {
-        eyePosRel = this.toRel(pred);
-      }
-      this.cursors.setCursorPosition(pred, "eye-position", "blob");
-      broadcast.eye(eyePosRel);
-    })
-    addAuthChangeListener(this);
+    // addPredictionListener((e) => {
+    //   let pred = e.prediction;
+    //   if (pred != null) pred = new Vector(pred);
+    //   console.log('x');
+    //   let eyePosRel = null;
+    //   let {calibrating} = this.calibrator;
+    //   if (calibrating) {
+    //     pred = null;
+    //     eyePosRel = "calibrating"
+    //   } else {
+    //     eyePosRel = this.toRel(pred);
+    //   }
+    //   this.cursors.setCursorPosition(pred, "eye-position", "blob");
+    //   DB.broadcast.eye(eyePosRel);
+    // })
+    DB.addAuthChangeListener(this);
   }
 
   async onconnect(){
     window.app = this;
     this.errorMessage = document.querySelector('.error-message');
     this.progressLoader = document.querySelector('progress-loader');
+    this.eyeTracker = document.querySelector('eye-tracking-frame');
+
+    this.eyeTracker.addEventListener("prediction", (e) => {
+      let {pos} = e;
+      if (pos) {
+        pos = this.toRel(pos);
+      }
+      console.log(pos);
+      DB.broadcast.eye(pos);
+    })
 
     this.pdfViewer = document.querySelector("pdf-viewer");
-    this.calibrator = document.querySelector("calibration-window");
-    this.cursors = document.querySelector("cursor-group");
+    // this.calibrator = document.querySelector("calibration-window");
+    // this.cursors = document.querySelector("cursor-group");
     this.webcamIcon = document.querySelector("[name = 'webcam-icon']");
     this.requestError = this.querySelector("[name = 'request-error']");
 
-    this.calibrator.addEventListener("point", (e) => {
-      addCalibrationPoint(e.point.x, e.point.y);
-    })
+    // this.calibrator.addEventListener("point", (e) => {
+    //   addCalibrationPoint(e.point.x, e.point.y);
+    // })
     this.pdfViewer.onmousemove = (e) => {
       let mousePosRel = this.toRel(new Vector(e));
-      broadcast.mouse(mousePosRel);
+      DB.broadcast.mouse(mousePosRel);
     }
 
     await this.waitForLoad
@@ -150,8 +160,6 @@ class EyeSeeApp extends SvgPlus{
     }
   }
 
-
-
   async webcamIconPulse(){
     console.log(this.webcamIcon);
     let fade = async (inout) => {
@@ -160,8 +168,8 @@ class EyeSeeApp extends SvgPlus{
       }, 400, inout);
     }
     for (let i = 0; i < 2; i++) {
-      await fade(false);
       await fade(true);
+      await fade(false);
     }
   }
 
@@ -200,12 +208,12 @@ class EyeSeeApp extends SvgPlus{
 
   signIn() {
     this.page = "loader";
-    login();
+    DB.login();
   }
 
   signOut(){
     this.page = "loading";
-    logout();
+    DB.logout();
   }
 
   async getPDF(){
@@ -240,7 +248,7 @@ class EyeSeeApp extends SvgPlus{
     let sessionKey = null;
     this.progress = 0;
     try {
-      sessionKey = await createSession(pdf, (p) => {this.progress = p * 0.99}, false);
+      sessionKey = await DB.createSession(pdf, (p) => {this.progress = p * 0.99}, false);
       await this.joinSession(sessionKey, true);
     } catch (e) {
       console.log("errrror");
@@ -250,9 +258,10 @@ class EyeSeeApp extends SvgPlus{
   }
 
   leaveSession(){
-    stopPredictions();
-    stopWebcam();
-    leaveSession();
+    // stopPredictions();
+    // stopWebcam();
+    this.eyeTracker.stop();
+    DB.leaveSession();
     this.home();
   }
 
@@ -263,12 +272,12 @@ class EyeSeeApp extends SvgPlus{
   }
 
   async joinSession(key, isCreator = false){
-    console.log(isCreator);
+    // console.log(isCreator);
     key = getQueryKey(key);
     this.page = "loader";
     this.pdfViewer.url = null;
     try {
-      await joinSession(key, isCreator);
+      await DB.joinSession(key, isCreator);
       this.sessionKey = key;
       this.hostedSession = key;
       this.toggleAttribute("session-host", isCreator);
@@ -289,31 +298,37 @@ class EyeSeeApp extends SvgPlus{
 
   async startEyeTracker(){
     this.page = "start-eye-tracking"
-    this.toggleAttribute("calibrated", false);
-
-    let [webcamOn] = await parallel(startWebcam(), this.webcamIconPulse());
-    console.log(webcamOn);
+    // this.toggleAttribute("calibrated", false);
+    //
+    let pulse = this.webcamIconPulse();
+    let webcamOn = await this.eyeTracker.start();
+    await pulse;
+    // console.log(webcamOn);
     if (webcamOn) {
-      startPredictions();
-      await this.calibrate();
-      this.toggleAttribute("calibrated", true);
+      this.page = "session"
+      await this.eyeTracker.feedback.show();
+      // startPredictions();
+      // await this.calibrate();
+      // this.toggleAttribute("calibrated", true);
     } else {
       this.page = "eye-tracking-error";
     }
   }
 
   async calibrate(){
-    let {calibrator} = this;
-    calibrator.show();
-    clearCalibration();
-    this.page = "calibrator"
-    try {
-      await calibrator.calibrate();
-    } catch (e) {
-      console.log(e);
-      this.page = "calibration-error";
-    }
-    this.page = "session"
+    await this.eyeTracker.calibrate();
+    await this.eyeTracker.feedback.moveTo(new Vector(1, 0), 0.2);
+    // let {calibrator} = this;
+    // calibrator.show();
+    // clearCalibration();
+    // this.page = "calibrator"
+    // try {
+    //   await calibrator.calibrate();
+    // } catch (e) {
+    //   console.log(e);
+    //   this.page = "calibration-error";
+    // }
+    // this.page = "session"
   }
 
   endSession(){
@@ -323,7 +338,7 @@ class EyeSeeApp extends SvgPlus{
 
   removeCurrentSession(){
     try {
-      removeCurrentSession();
+      DB.removeCurrentSession();
       this.sessionKey = null;
       this.hostedSession = null;
     } catch (e) {
@@ -333,11 +348,11 @@ class EyeSeeApp extends SvgPlus{
 
   nextPDFPage(){
     this.pdfViewer.page++;
-    broadcast.page(this.pdfViewer.page);
+    DB.broadcast.page(this.pdfViewer.page);
   }
   lastPDFPage(){
     this.pdfViewer.page--;
-    broadcast.page(this.pdfViewer.page);
+    DB.broadcast.page(this.pdfViewer.page);
   }
 
   makeRequest(){
@@ -363,12 +378,10 @@ class EyeSeeApp extends SvgPlus{
     if (error) {
       this.requestError.innerHTML = "Please enter values for all fields"
     } else {
-      await sendRequest(info);
+      await DB.sendRequest(info);
       this.home()
     }
   }
-
-
 
   home(){this.page = 'home';}
 

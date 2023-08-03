@@ -1,4 +1,4 @@
-import {setPredictor, addPredictionListener, startWebcam, stopWebcam, stopPredictions, startPredictions} from "./webcam-capture.js"
+import {copyFrame, setPredictor, addPredictionListener, startWebcam, stopWebcam, stopPredictions, startPredictions} from "./webcam-capture.js"
 
 let lastEyePatches = null;
 
@@ -23,14 +23,17 @@ async function predictEyes(input){
   let eyePatches = null;
   // get eye patches
   let faces = await FaceTracker.predictFaces(input.video);
+  input.faces = faces;
   eyePatches = FaceTracker.getEyePatches(faces, input.canvas);
   lastEyePatches = eyePatches;
 
   // attempt to predict location of eyes
   eyePos = FaceTracker.predictIrises(eyePatches);
+
+
   return eyePos;
 }
 
 setPredictor(predictEyes);
 
-export {addCalibrationPoint, clearCalibration, startWebcam, stopWebcam, startPredictions, stopPredictions, addPredictionListener}
+export {copyFrame, addCalibrationPoint, clearCalibration, startWebcam, stopWebcam, startPredictions, stopPredictions, addPredictionListener}

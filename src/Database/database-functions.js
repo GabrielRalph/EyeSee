@@ -2,7 +2,7 @@ import {initializeApp} from 'https://www.gstatic.com/firebasejs/9.2.0/firebase-a
 import {getAuth, signInWithRedirect, GoogleAuthProvider, onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/9.2.0/firebase-auth.js'
 import {getDatabase, child, push, ref, get, onValue, onChildAdded, onChildChanged, onChildRemoved, set, off} from 'https://www.gstatic.com/firebasejs/9.2.0/firebase-database.js'
 import {uploadFileToCloud} from "./fileupload.js"
-
+console.log("firebase loaded");
 function delay(t) {
   return new Promise(function(resolve, reject) {
     setTimeout(resolve, t);
@@ -364,6 +364,21 @@ export const broadcast = {
            position = {x, y}
          }
          await setSession(SID, "info/mouse", position);
+       } catch (e) {}
+     }
+   },
+   ice: async function(ice) {
+     if (ice != null && typeof ice === "object") {
+       let {type, spd} = ice;
+       ice = {type, spd}
+     }
+     if (SID) {
+       try {
+         if (IsCreator) {
+           await setSession(SID, "info/ice", ice);
+         } else {
+           await setEntrant(SID, "ice", ice);
+         }
        } catch (e) {}
      }
    },

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+    <link href =  "./calibration.css" rel="stylesheet"/>
+    <link href =  "../AppPages/main.css" rel="stylesheet"/>
+    <script type = "module" src = "../Cursor/cursor.js"></script>
+    <script type = "module" src = "./calibration-window2.js"></script>
+    <script type = "module" src = "../EyeTracker/face-tracker.js"></script>
+  </head>
+  <body>
+    <!-- <div class = "session-frame"> -->
+      <!-- <div class = "content-frame"> -->
+        <!-- <img src = "../Icons/example-01.svg" />
+        <div class = "overlay">
+          <calibration-window>
+            <div name = "message">
+              <div class = "center-card">
+                <h2>
+                  Focus on the purple dots<br />
+                  to calibrate eye tracking.
+                </h2>
+                <div name = "run" class = "btn">
+                  Start Calibration
+                </div>
+              </div>
+            </div> -->
+          <!-- </calibration-window> -->
+        <!-- </div> -->
+        <cursor-group></cursor-group>
+        <feedback-frame></feedback-frame>
+      <!-- </div> -->
+    </div>
+
+  </body>
+
+  <script type = "module">
+    import {} from "./FeedbackFrame.js"
+    import {copyFrame, startWebcam, stopWebcam, startPredictions, stopPredictions, addPredictionListener} from "../EyeTracker2/eye-tracker.js"
+    let cursors = document.querySelector("cursor-group");
+    let feedback = document.querySelector("feedback-frame");
+    const csize = 10;
+
+    const eyepidxs = [
+
+      [25, 33, 246, 161, 160, 159, 158, 157, 173, 243], // top left
+      [25, 110, 24, 23, 22, 26, 112, 243], // bottom left
+      [463, 398, 384, 385, 386, 387, 388, 466, 263, 255], // top right
+      [463, 341, 256, 252, 253, 254, 339, 255], // bottom right
+    ];
+
+    function getPoints(faceData) {
+      return eyepidxs.map((pidxs) => {
+        return pidxs.map(k => faceData.scaledMesh[k]);
+      })
+    }
+
+    function mean(points, D = 3) {
+      let m = (new Array(D)).fill(0);
+      for (let p of points)
+        for (let i = 0; i < D; i++) m[i] += p[i];
+      return m.map(c => c/points.length);
+    }
+
+    function getBBox(points, D = 3) {
+      let max = (new Array(D)).fill(0);
+      let min = (new Array(D)).fill(0);
+      let size = (new Array(D)).fill(0);
+      for (let i = 0; i < D; i++) {
+        max[i] = Math.max(...points.map(p => p[i]));
+        min[i] = Math.min(...points.map(p => p[i]));
+        size[i] = max[i] - min[i];
+      }
+      let center = mean(points,D);
+      return {max, min, size, center}
+    }
+
+
+    function updateFeedback(e){
+      let {width, height} = e.canvas;
+      let points = getPoints(e.faces[0]);
+      let left = [...points[0], ...points[1]];
+      let right = [...points[2], ...points[3]];
+
+      let lbox = getBBox(left);
+      let rbox = getBBox(right);
+      let fbox = getBBox([...left, ...right]);
+
+
+      let aeyes = Math.atan2(lbox.center[0] - rbox.center[0], lbox.center[1] - rbox.center[1])
+      let azeyes = Math.atan2(fbox.size[1], lbox.size[2]);
+      aeyes = -aeyes -Math.PI/2;
+      console.log(aeyes * 180 / Math.PI);
+
+      let [xn, yn, sn] = [fbox.center[0]/width, fbox.center[1]/height, fbox.size[0]/width];
+
+      let inframe = xn > 0.3 && xn < 0.7 && yn > 0.3 && yn < 0.7;
+      let gooddist = sn > 0.15;
+      let valid =  inframe && gooddist
+      let error = null;
+      if (!inframe) error = "Face outside<br /> of frame"
+      if (!gooddist) error = "Face to far away"
+
+      feedback.updateCanvas(e.canvas);
+      feedback.setGlassesPose(fbox.center[0], fbox.center[1], fbox.size[0]*1.3, aeyes);
+      feedback.error = error;
+    }
+
+
+
+    console.log(cursors);
+    let clibrating = null;
+    addPredictionListener((e) => {
+      updateFeedback(e);
+    })
+
+    window.ondblclick = async () => {
+      if (await startWebcam()) {
+        await startPredictions()
+      }
+    }
+
+
+  </script>
+
+  <style>
+    feedback-frame {
+      position: fixed;
+      margin: 1em;
+      width: 25vw;
+      top: 0;
+      left: 50%;
+      transform: translate(-50%, 0);
+      display: flex;
+    }
+    feedback-frame > div {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: contents;
+    }
+    feedback-frame canvas {
+      width: 100%;
+    }
+    feedback-frame svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+    }
+    .msg {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translate(-50%, 0);
+      display: inline;
+      background: #fff9;
+      border: 2px solid red;
+      backdrop-filter: blur(5px);
+      text-align: center;
+      margin: 5px;
+      border-radius: 10px;
+    }
+    svg[valid] .glasses  {
+      fill: lime;
+      stroke: green;
+    }
+    svg:not([valid]) .glasses {
+      fill: red;
+      stroke: darkred;
+    }
+
+    /* .my-eyes canvas {
+      width: 200px;
+      height: 150px;
+    }
+    .mouse-cursor {
+      width: 10px;
+      height: 10px;
+      background: blue;
+    }
+    .session-frame {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+    .content-frame {
+      position: relative;
+      display: content;
+    }
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    .content-frame img{
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    body {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+    }
+
+    svg.cursor {
+      position: fixed;
+      width: 300px;
+      height: 300px;
+      user-select: none;
+      pointer-events: none;
+    }
+    .run-btn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 0.5em;
+      border-radius: 0.5em;
+      border: 2px solid black;
+      cursor: pointer;
+    }
+    .my-eye */
+  </style>
+</html>

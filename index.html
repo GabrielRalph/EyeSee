@@ -10,16 +10,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100;200;300;400;600&display=swap" rel="stylesheet">
-    <link href = "./AppPages/main.css" rel = "stylesheet" />
-    <link href = "./Calibration/calibration.css" rel = "stylesheet" />
-    <script src = "./Loader/loader.js" type = "module"></script>
-    <script src = "./EyeTracker/face-tracker.js"></script>
-    <script type = "module" src = "./Cursor/cursor.js"></script>
-    <script type = "module" src = "./Calibration/calibration-window.js"></script>
-    <script type = "module" src = "./EyeTracker/eye-tracker-window.js"></script>
+    <link href = "./src/AppPages/main.css" rel = "stylesheet" />
+    <!-- <link href = "./Calibration/calibration.css" rel = "stylesheet" /> -->
+    <script src = "./src/Loader/loader.js" type = "module"></script>
+    <!-- <script src = "./EyeTracker/face-tracker.js"></script> -->
+    <!-- <script type = "module" src = "./Cursor/cursor.js"></script> -->
+    <!-- <script type = "module" src = "./Calibration/calibration-window.js"></script> -->
+    <!-- <script type = "module" src = "./EyeTracker/eye-tracker-window.js"></script> -->
+
+
+    <script src = "./src/AppPages/eye-see-app.js" type = "module"></script>
+
     <script src="https://mozilla.github.io/pdf.js/build/pdf.js"></script>
-    <script type = "module" src = "./PDFViewer/pdf-viewer.js"></script>
-    <script src = "./AppPages/eye-see-app.js" type = "module"></script>
+    <script type = "module" src = "./src/PDFViewer/pdf-viewer.js"></script>
+
   </head>
   <body>
     <eye-see-app>
@@ -206,7 +210,7 @@
         <div class = "center-card">
           <h1>Starting Eye Tracker</h1>
           <div class = "row">
-            <div name = "webcam-icon" class = "pointer" style = "--p-size: 3.5vmin; --p-color: #f01c1c; position: relative; transform: none">
+            <div name = "webcam-icon" class = "pointer" style = "border-radius: 3.5vmin; width: 3.5vmin; height: 3.5vmin; background: #f01c1c; position: relative; transform: none; opacity: 0;">
             </div>
           </div>
         </div>
@@ -236,7 +240,7 @@
         </div>
       </div>
 
-      <calibration-window class = "app-window" name = "calibrator">
+      <!-- <calibration-window class = "app-window" name = "calibrator">
         <div name = "message">
           <div class = "top-left btn" is-calibrated name = "exit">
             Exit
@@ -254,7 +258,7 @@
             </div>
           </div>
         </div>
-      </calibration-window>
+      </calibration-window> -->
 
       <div class = "app-window" name = "session">
         <div class = "session-frame">
@@ -295,7 +299,8 @@
 
               </div>
             </div>
-            <cursor-group></cursor-group>
+            <eye-tracking-frame></eye-tracking-frame>
+            <!-- <cursor-group></cursor-group> -->
           </div>
         </div>
       </div>

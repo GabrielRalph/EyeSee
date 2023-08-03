@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+
+    <meta charset="utf-8">
+    <title></title>
+  </head>
+  <body>
+    <button onclick = "window.start()">Start</button>
+    <feedback-frame></feedback-frame>
+  </body>
+
+  <script type = "module">
+    import {Vector} from "../Calibration/FeedbackFrame.js"
+    import {FaceMesh, Webcam} from "./mediapipefm.js"
+    let feedback = document.querySelector("feedback-frame");
+    window.start = async () => {
+      if (await Webcam.startWebcam()) {
+        Webcam.startPredictions();
+      }
+    }
+    window.ondblclick = async () => {
+      if (Webcam.isOn()){
+        console.log("on" , Webcam.isPredicting());
+
+        if (Webcam.isPredicting()){
+          Webcam.stopPredictions();
+        } else {
+          console.log("restart");
+          Webcam.startPredictions();
+        }
+      } else {
+        if (await Webcam.startWebcam()) {
+          Webcam.startPredictions();
+        }
+      }
+    }
+
+
+    const eyepidxs = {
+      left: {
+        border: [112, 26, 22, 23, 24, 110, 25, 33, 246, 161, 160, 159, 158, 157, 173, 243],
+        pupil: [468],
+        iris: [469, 470, 471, 472],
+        all: [112, 26, 22, 23, 24, 110, 25, 33, 246, 161, 160, 159, 158, 157, 173, 243, 469, 470, 471, 472, 468]
+      },
+      right: {
+        border: [463, 398, 384, 385, 386, 387, 388, 466, 263, 255, 339, 254, 253, 252, 256, 341],
+        pupil: [473],
+        iris: [474, 475, 476, 477],
+        all: [463, 398, 384, 385, 386, 387, 388, 466, 263, 255, 339, 254, 253, 252, 256, 341, 474, 475, 476, 477, 473]
+      },
+      plane: [168, 112, 26, 22, 23, 24, 110, 25, 33, 246, 161, 160, 159, 158, 157, 173, 243, 205, 425, 200, 463, 398, 384, 385, 386, 387, 388, 466, 263, 255, 339, 254, 253, 252, 256, 341]
+    }
+
+
+    Webcam.addPredictionListener((res) => {
+
+      let {width, height} = res;
+      let points = res.prediction.faceLandmarks[0];
+      feedback.updateCanvas(res.canvas);
+      let {svg} = feedback;
+      svg.innerHTML = "";
+      // console.log(points);
+      let e1 = eyepidxs.plane.map((i) => [points[i].x, points[i].y, points[i].z] + "").join("; ");
+      // let e2 = eyepidxs.right.all.map((i) => [points[i].x, points[i].y, points[i].z] + "").join("; ");
+      let data = `p = [${e1}];`
+      console.log(data);
+      // for (let key in eyepidxs) {
+        for (let i = 0; i < 477; i++) {
+          let size = new Vector(width, height);
+          let p = new Vector(points[i]);
+          p = p.mul(size);
+          svg.createChild("circle", {cx: p.x, cy: p.y, r: 2, fill: "red"});
+          svg.createChild("text", {x: p.x, y: p.y, content: i, fill: "blue", "font-size": 4});
+        }
+      // }
+    })
+
+  </script>
+</html>

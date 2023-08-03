@@ -1,6 +1,6 @@
 [submodule "SvgPlus"]
-	path = SvgPlus
+	path = src/SvgPlus
 	url = https://github.com/GabrielRalph/SvgPlus.git
 [submodule "pdf_viewer"]
-	path = pdf_viewer
+	path = src/PDFViewer
 	url = https://github.com/bradtraversy/pdf_viewer.git
