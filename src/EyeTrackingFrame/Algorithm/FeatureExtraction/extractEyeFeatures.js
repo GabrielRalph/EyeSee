@@ -1,7 +1,7 @@
 import {Vector3, Vector} from "./vector3.js"
 
-const WIDTH = 22;
-const HEIGHT = 15;
+const WIDTH = 25;
+const HEIGHT = 17;
 
 const H2T = 0.5;
 const BLINKRATIO = 0.17; // If the distance from the top of the eye to the bottom (height)

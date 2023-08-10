@@ -3,6 +3,15 @@ import {HideShow, SvgResize} from "../../Utilities/basic-ui.js"
 import {parallel, dotGrid, delay, linspace} from "../../Utilities/usefull-funcs.js"
 import * as Algorithm from "../Algorithm/EyeGaze.js"
 
+async function waitForClick(){
+  return new Promise((resolve, reject) => {
+    let end = () => {
+      window.removeEventListener("click", end);
+      resolve();
+    }
+    window.addEventListener("click", end);
+  });
+}
 class CalibrationFrame extends HideShow {
   constructor(el = "calibration-frame"){
     super(el);
@@ -29,6 +38,22 @@ class CalibrationFrame extends HideShow {
 		this.pointer = pointers.createPointer("calibration", 15);
 		pointers.shown = true;
     pointers.start();
+
+    let vregs = new HideShow("g");
+    this.vregs = vregs;
+    this.vregps = [];
+    let s = 5;
+    for (let y = 0; y < s; y++) {
+      for (let x = 0; x < s; x++) {
+        let p = pointers.createPointer("calibration", 20);
+        p.position = new Vector((x+0.5)/s, (y+0.5)/s);
+        console.log(p.position);
+        p.shown = true;
+        this.vregps.push(p);
+        vregs.appendChild(p);
+      }
+    }
+    pointers.appendChild(vregs);
 
 
 		let message = new HideShow("div");
@@ -57,7 +82,7 @@ class CalibrationFrame extends HideShow {
 	get br(){return this.bottomright;}
 	set recording(value) {
 		this._recording = value;
-		if (value) Algorithm.startSampling(this.sample_method)
+		if (value) Algorithm.startSampling(this.sample_method, this.bbox)
 		else Algorithm.stopSampling()
 	}
 	get recording(){
@@ -89,7 +114,7 @@ class CalibrationFrame extends HideShow {
 			await pointer.hide();
 		}
 	}
-	async calibrate_scan(divs = 4, max_time = 4000){
+	async calibrate_scan(divs = 5, max_time = 3000){
 		let {pointer} = this;
 		let bbox = this.getBoundingClientRect();
 		let [t1, t2] = [max_time, max_time];
@@ -128,15 +153,46 @@ class CalibrationFrame extends HideShow {
 		await this.message.hide();
 	}
 	async calibrate(){
-		await this.showMessageCountDown("Keeping your head steady,<br/>focus on the red dot<br/>as it moves along the screen.<br/>$$");
-		this.sample_method = "steady";
-		await this.calibrate_scan();
+		// await this.showMessageCountDown("Keeping your head steady,<br/>focus on the red dot<br/>as it moves along the screen.<br/>$$");
+		// this.sample_method = "steady";
+		// await this.calibrate_scan();
 		await this.showMessageCountDown("This time move your <br/> head around and <br/>focus on the red dot<br/>as it moves along the screen.<br/>$$");
 		this.sample_method = "moving";
 		await this.calibrate_scan();
 		await this.showMessage("Calibrating eye tracking...");
-		Algorithm.trainModel();
-		await this.hideMessage();
+		let error = Algorithm.trainModel();
+    console.log(error);
+    await this.hideMessage();
+    await this.showMessage(`Model Accuracy ${Math.round(100 - 2*error.std*100)}%`);
+    await delay(5000);
+    await this.hideMessage();
+    //
+    // let stds = [];
+    // let stdid = {};
+    // for (let i = 0; i < this.vregps.length; i++) {
+    //   let std = null;
+    //   if (error.te.kalman[i]) {
+    //     std = error.te.kalman[i].std
+    //     stds.push(std);
+    //   }
+    //   stdid[i] = std;
+    // }
+    // let max = Math.max(...stds);
+    // let min = Math.min(...stds);
+    //
+    // for (let i = 0; i < this.vregps.length; i++) {
+    //   let p = this.vregps[i];
+    //   p.position = p.position;
+    //   p.color = "grey";
+    //   if (stdid[i] != null) {
+    //     let rank = Math.round(10 - 10 * (stdid[i] - min) / (max - min));
+    //     p.text = rank;
+    //     p.color = `hsl(${rank*18}, 100%, 50%)`;
+    //     p.tg.shown = true;
+    //   }
+    // }
+    // await this.vregs.show();
+    // await waitForClick();
 	}
   async show(hide) {
     if (!hide) {

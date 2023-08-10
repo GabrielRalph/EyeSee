@@ -51,8 +51,8 @@ export class EyeTrackingFrame extends SvgPlus {
       left: 0,
     }
     pointers.shown = true;
-    this.p1 = pointers.createPointer("simple", 10, "purple");
-    this.p2 = pointers.createPointer("simple", 5, "green");
+    this.cursor = pointers.createPointer("simple", 5, "red");
+    this.blob = pointers.createPointer("blob", 15);
     this.pointers = pointers;
     this.pointers.start();
 
@@ -70,7 +70,7 @@ export class EyeTrackingFrame extends SvgPlus {
     Webcam.stopProcessing();
     Webcam.stopWebcam();
     this.grid.shown = false;
-    this.p1.shown = false;
+    this.blob.shown = false;
     this.feedback.shown = false;
   }
 
@@ -94,7 +94,7 @@ export class EyeTrackingFrame extends SvgPlus {
     await this.calibrator.hide();
     this.grid.start();
 
-    await parallel(this.p1.show(), this.grid.show());
+    await this.grid.show();
   }
 
   onPrediction(input){
@@ -105,11 +105,9 @@ export class EyeTrackingFrame extends SvgPlus {
       if (result.x < 0) result.x = 0;
       if (result.y > 1) result.y = 1;
       if (result.y < 0) result.y = 0;
-      if (!this.p1.shown) this.p1.show();
       let [pos, size] = this.bbox;
       rel = result.mul(size).add(pos);
     }
-    this.p1.position = input.result;
     const event = new Event("prediction");
     event.pos = rel;
     this.dispatchEvent(event);

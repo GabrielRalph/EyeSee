@@ -5,6 +5,7 @@ import * as DB from "../Database/database-functions.js"
 const {EyeTrackingFrame} = import("../EyeTrackingFrame/eye-tracking-frame.js")
 
 
+
 window.closestInputValue = function (node) {
   let input = null;
   while (!input && node) {
@@ -48,36 +49,25 @@ class EyeSeeApp extends SvgPlus{
         }
       },
       eyes: (value) => {
-        let [cpos, size] = this.eyeTracker.bbox;
-
-        // this.toggleAttribute("patient-calibrating", false);
+        this.toggleAttribute("patient-calibrating", false);
         for (let key in value) {
           let eyes = value[key].eyes;
+          let pos = null;
           if (eyes === "calibrating") {
             this.toggleAttribute("patient-calibrating", true);
           } else {
-            let pos = this.toScreen(new Vector(eyes));
-            if (pos && cpos) {
-              let crel = pos.sub(cpos).div(size);
-
-              this.eyeTracker.p2.shown = true;
-              this.eyeTracker.p2.position = crel;
-            }
+            pos = this.toScreen(new Vector(eyes));
           }
+          this.eyeTracker.blob.position = pos;
+          this.eyeTracker.blob.shown = true;
         }
       },
       mouse: (value) => {
         try{
-          let pos = this.toScreen(new Vector(value));
-          let [cpos, size] = this.eyeTracker.bbox;
-          if (pos && cpos) {
-            let crel = pos.sub(cpos).div(size);
-            this.eyeTracker.p1.shown = true;
-            this.eyeTracker.p1.position = crel;
-            // pos = pos.div
-            // this.cursors.setCursorPosition(pos, "mouse", "default");
-          }
-        } catch(e){}
+          let screenPos = this.toScreen(new Vector(value));
+          this.eyeTracker.cursor.shown = true;
+          this.eyeTracker.cursor.position = screenPos;
+        } catch(e){console.log(e);}
       },
       user: async (data) => {
         // console.log("user info", data);
@@ -132,10 +122,15 @@ class EyeSeeApp extends SvgPlus{
 
     this.eyeTracker.addEventListener("prediction", (e) => {
       let {pos} = e;
+      this.eyeTracker.blob.position = pos;
+      this.eyeTracker.blob.shown = true;
       if (pos) {
         pos = this.toRel(pos);
       }
-      console.log(pos);
+      if (this.calibrating) {
+        pos = "calibrating";
+      }
+
       DB.broadcast.eye(pos);
     })
 
@@ -149,7 +144,8 @@ class EyeSeeApp extends SvgPlus{
     //   addCalibrationPoint(e.point.x, e.point.y);
     // })
     this.pdfViewer.onmousemove = (e) => {
-      let mousePosRel = this.toRel(new Vector(e));
+      let v = new Vector(e);
+      let mousePosRel = this.toRel(v);
       DB.broadcast.mouse(mousePosRel);
     }
 
@@ -316,19 +312,10 @@ class EyeSeeApp extends SvgPlus{
   }
 
   async calibrate(){
+    this.calibrating = true;
     await this.eyeTracker.calibrate();
+    this.calibrating = false;
     await this.eyeTracker.feedback.moveTo(new Vector(1, 0), 0.2);
-    // let {calibrator} = this;
-    // calibrator.show();
-    // clearCalibration();
-    // this.page = "calibrator"
-    // try {
-    //   await calibrator.calibrate();
-    // } catch (e) {
-    //   console.log(e);
-    //   this.page = "calibration-error";
-    // }
-    // this.page = "session"
   }
 
   endSession(){
