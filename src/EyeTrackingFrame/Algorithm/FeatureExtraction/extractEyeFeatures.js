@@ -1,9 +1,9 @@
 import {Vector3, Vector} from "./vector3.js"
 
-const WIDTH = 25;
-const HEIGHT = 17;
-
-const H2T = 0.5;
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Default Parameters ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+const WIDTH = 20;
+const HEIGHT = 10;
+const H2T = 0.5;         // Represents the ratio of the height of the eye to the center
 const BLINKRATIO = 0.17; // If the distance from the top of the eye to the bottom (height)
                          // is less than the width of the eye times the blink ratio
                          // the feature extraction will fail
@@ -11,7 +11,60 @@ const MINSIZERATIO = 0.9 // If the width of the eye is less than the min size ra
                          // times the fixed width and height feature extraction
                          // will fail
 
-// ~~~~~~~~~~~~~~ Pre Processing ~~~~~~~~~~~~~~ //
+/** Extract Eye Features, given the eye points object determines a 3D bounding box
+    and extracts pixel information from the provided canvas.
+ * @param {FacePoints} eyePoints (see FacePointIdxs in FaceMesh.js)
+ * @param {HTMLCanvasElement} canvas
+ * @param {Number} w Width of eye box in pixels (defaults to WIDTH)
+ * @param {Number} w Height of eye box in pixels (defaults to HEIGHT)
+ * @returns {Features} (See below for definition)
+*/
+/*
+Features {
+  right/left: {
+    pixels: [Number], Gray scale pixel data for left eye
+    box: {
+      topLeft: Vector, bottomLeft: Vector, bottomRight: Vector, topRight: Vector,
+      eyeTop: Vector, eyeBottom: Vector,
+      warning: string, i.e. if blinking, no eye detected or the eyes are too small
+    }
+  },
+  errors: string, comma seperated list of all errors detected
+}
+*/
+export function extractEyeFeatures(facePoints, canvas, w = WIDTH, h = HEIGHT) {
+ let features = {};
+ let errors = [];
+ try {
+   for (let key of ["left", "right"]) {
+     let eyeBox = {warning: "not detected"};
+     let eyePixels = null;
+     let pkey = key + "eye";
+
+     if (pkey in facePoints) {
+       eyeBox = getEyeBoundingBox(facePoints[pkey], h/w, w * MINSIZERATIO);
+       eyePixels = extractEyeBoxPixels(eyeBox, canvas, w, h);
+       eyePixels = equalizeHistogram(eyePixels, 5);
+       eyePixels = im2double(eyePixels);
+     }
+
+     features[key] = {
+       box: eyeBox,
+       pixels: eyePixels
+     }
+     if (eyeBox.warning) errors.push(`The ${key} eye is ${eyeBox.warning}`);
+   }
+   if (errors.length != 0) features.errors = errors.join(", ");
+ } catch (e) {
+   console.log(e);
+   features.errors = e;
+ }
+
+ return features;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Helper Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Pre Processing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
 let CA = document.createElement("canvas");
 let CTX = CA.getContext("2d", {willReadFrequently: true});
 
@@ -92,7 +145,7 @@ export function renderGray(gray, canvas, mult) {
   ctx.putImageData(new ImageData(data, w, h), 0, 0);
 }
 
-// ~~~~~~~~~~~~~~ Eye Image Extraction ~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Eye Box Extraction ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
 function extractEyeBoxPixels(eyeBox, canvas, w = WIDTH, h = HEIGHT) {
   CA.height = canvas.height;
   CA.width = canvas.width;
@@ -116,7 +169,7 @@ function extractEyeBoxPixels(eyeBox, canvas, w = WIDTH, h = HEIGHT) {
 }
 
 // Given the points on the top, bottom, left and right of the eye find the cor
-function getEyeBoundingBox(eyePoints, w2h, minW){
+function getEyeBoundingBox(eyePoints, w2h, minW, h2t = H2T){
   let {left, right, top, bottom} = eyePoints
   let warning = null;
   let lr = right.v3d.sub(left.v3d);
@@ -145,8 +198,8 @@ function getEyeBoundingBox(eyePoints, w2h, minW){
 
   // transform tb back
   let tbr = tb_.rotateZ(az).rotateY(-ay);
-  let up = tbr.dir().mul(h * H2T);
-  let down = tbr.dir().mul(h - h*H2T);
+  let up = tbr.dir().mul(h * h2t);
+  let down = tbr.dir().mul(h - h*h2t);
 
   // return 2d vectors with stored 3d vectors
   let x13 = left.v3d.sub(up);
@@ -165,33 +218,5 @@ function getEyeBoundingBox(eyePoints, w2h, minW){
   let x4 = new Vector(x43);
   x4.v3d = x43;
 
-  return {topLeft: x1, bottomLeft: x2, bottomRight: x3, topRight: x4, warning: warning}
-}
-
-export function extractEyeFeatures(points, canvas, w = WIDTH, h = HEIGHT) {
-  let features = {};
-  let errors = [];
-  for (let key of ["left", "right"]) {
-    let eyeBox = {warning: "not detected"};
-    let eyePixels = null;
-    let pkey = key + "eye";
-    if (pkey in points) {
-      eyeBox = getEyeBoundingBox(points[pkey], h/w, w * MINSIZERATIO);
-      eyePixels = extractEyeBoxPixels(eyeBox, canvas, w, h);
-      eyePixels = equalizeHistogram(eyePixels, 5);
-      eyePixels = im2double(eyePixels);
-    }
-    features[key] = {
-      box: eyeBox,
-      pixels: eyePixels
-    }
-    if (eyeBox.warning) {
-      errors.push(`The ${key} eye is ${eyeBox.warning}`);
-    }
-  }
-
-  if (errors.length != 0) {
-    features.errors = errors.join(", ");
-  }
-  return features;
+  return {topLeft: x1, bottomLeft: x2, bottomRight: x3, topRight: x4, eyeTop: top, eyeBottom: bottom, warning: warning}
 }

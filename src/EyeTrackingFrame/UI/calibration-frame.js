@@ -152,47 +152,31 @@ class CalibrationFrame extends HideShow {
 		}
 		await this.message.hide();
 	}
-	async calibrate(){
-		// await this.showMessageCountDown("Keeping your head steady,<br/>focus on the red dot<br/>as it moves along the screen.<br/>$$");
-		// this.sample_method = "steady";
-		// await this.calibrate_scan();
-		await this.showMessageCountDown("This time move your <br/> head around and <br/>focus on the red dot<br/>as it moves along the screen.<br/>$$");
+
+  async calibrate_rradjusted(){
+    await this.showMessageCountDown("Keeping your head steady,<br/>focus on the red dot<br/>as it moves along the screen.<br/>$$");
+		this.sample_method = "steady";
+		await this.calibrate_scan(4, 2000);
+    await this.showMessageCountDown("This time move your <br/> head around and <br/>focus on the red dot<br/>as it moves along the screen.<br/>$$");
 		this.sample_method = "moving";
-		await this.calibrate_scan();
+		await this.calibrate_scan(4, 2000);
+  }
+  async calibrate_rrcombined(){
+    await this.showMessageCountDown("Move your <br/> head around and <br/>focus on the red dot<br/>as it moves along the screen.<br/>$$");
+		this.sample_method = "moving";
+		await this.calibrate_scan(5, 3000);
+  }
+	async calibrate(){
+		await this.calibrate_rradjusted();
 		await this.showMessage("Calibrating eye tracking...");
 		let error = Algorithm.trainModel();
     console.log(error);
     await this.hideMessage();
-    await this.showMessage(`Model Accuracy ${Math.round(100 - 2*error.std*100)}%`);
+    let std = error[0].validation.std.norm();
+    await this.showMessage(`Model Accuracy ${Math.round(100 - 2*std*100)}%`);
     await delay(5000);
     await this.hideMessage();
-    //
-    // let stds = [];
-    // let stdid = {};
-    // for (let i = 0; i < this.vregps.length; i++) {
-    //   let std = null;
-    //   if (error.te.kalman[i]) {
-    //     std = error.te.kalman[i].std
-    //     stds.push(std);
-    //   }
-    //   stdid[i] = std;
-    // }
-    // let max = Math.max(...stds);
-    // let min = Math.min(...stds);
-    //
-    // for (let i = 0; i < this.vregps.length; i++) {
-    //   let p = this.vregps[i];
-    //   p.position = p.position;
-    //   p.color = "grey";
-    //   if (stdid[i] != null) {
-    //     let rank = Math.round(10 - 10 * (stdid[i] - min) / (max - min));
-    //     p.text = rank;
-    //     p.color = `hsl(${rank*18}, 100%, 50%)`;
-    //     p.tg.shown = true;
-    //   }
-    // }
-    // await this.vregs.show();
-    // await waitForClick();
+
 	}
   async show(hide) {
     if (!hide) {
